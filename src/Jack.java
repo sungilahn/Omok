@@ -46,7 +46,7 @@ public class Jack {
 	private Set<java.util.List<Point>> least5(int color) {
 		Set<java.util.List<Point>> result = new HashSet<java.util.List<Point>>();
 		return result;
-	}//commit
+	}
 
 	public void test() {
 		System.out.println("test!");
