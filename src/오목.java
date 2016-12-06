@@ -51,6 +51,7 @@ public class 오목 extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         pack();
+		this.setVisible(true);
 		// initialize game
         pieces = new ArrayList<Point>();
 		AI = new Jack(offset, square);
@@ -109,6 +110,7 @@ public class 오목 extends JFrame {
 			System.out.println("Start state changed to: "+startState);
 		});
 		JButton first = new JButton("<<");
+		//first.setPreferredSize(new Dimension(30, 20)); // TODO: how to set button size without changing style?
 		first.addActionListener(e -> {
 			if (pieces.size() > 0) {
 				show = 1;
@@ -116,6 +118,7 @@ public class 오목 extends JFrame {
 			}
 		});
 		JButton prev = new JButton("<");
+		//prev.setPreferredSize(new Dimension(20, 20));
 		prev.addActionListener(e -> {
 			if (show > 1) {
 				show--;
@@ -123,6 +126,7 @@ public class 오목 extends JFrame {
 			}
 		});
 		JButton next = new JButton(">");
+		//next.setPreferredSize(new Dimension(20, 20));
 		next.addActionListener(e -> {
 			if (show < pieces.size()) {
 				show++;
@@ -130,6 +134,7 @@ public class 오목 extends JFrame {
 			}
 		});
 		JButton last = new JButton(">>");
+		//last.setPreferredSize(new Dimension(30, 20));
 		last.addActionListener(e -> {
 			show = pieces.size();
 			repaint();
@@ -554,6 +559,5 @@ public class 오목 extends JFrame {
 
     public static void main(String[] cheese) {
         오목 game = new 오목();
-		game.setVisible(true);
     }
 }
