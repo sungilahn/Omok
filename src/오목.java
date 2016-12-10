@@ -54,7 +54,7 @@ public class 오목 extends JFrame {
 		this.setVisible(true);
 		// initialize game
         pieces = new ArrayList<Point>();
-		AI = new Jack(offset, square);
+		AI = new Jack();
     }
 
     private JComponent setupCanvas() {
@@ -111,6 +111,7 @@ public class 오목 extends JFrame {
 		});
 		JButton first = new JButton("<<");
 		//first.setPreferredSize(new Dimension(30, 20)); // TODO: how to set button size without changing style?
+		// seriously, Swing is fucking weird
 		first.addActionListener(e -> {
 			if (pieces.size() > 0) {
 				show = 1;
@@ -302,7 +303,7 @@ public class 오목 extends JFrame {
                 if (legalMove(pt)) {
                 	show = pieces.size();
                     created = pt;
-					AI.addPoint(p);
+					AI.addPoint(px,py);
                     if (won()) {
 						ifWon = true;
                         if (pieces.size()%2 == 0) {
@@ -366,12 +367,12 @@ public class 오목 extends JFrame {
 			AIMode = false;
 		} else if (startState == 2) { // COM WHITE
 			AIMode = true;
-			AI = new Jack(offset, square);
+			AI = new Jack();
 		} else {
 			AIMode = true;
-			AI = new Jack(offset, square);
+			AI = new Jack();
 			pieces.add(new Point(9,9));
-			AI.addPoint(new Point(9,9));
+			AI.addPoint(9,9);
 		}
         repaint();
     }
@@ -420,7 +421,7 @@ public class 오목 extends JFrame {
                 frags = part[0].split("[\\W]"); // splits on any non-alphabetical character
                 for (int i=1; i<frags.length-1; i=i+3) {
                     pieces.add(new Point(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1])));
-					AI.addPoint(new Point(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1])));
+					AI.addPoint(Integer.parseInt(frags[i]),Integer.parseInt(frags[i+1]));
                 }
                 show = pieces.size();
                 set34 = open3(pieces); // for winning check
@@ -443,7 +444,7 @@ public class 오목 extends JFrame {
 
     // house rule: bans a move that simultaneously forms two open rows of three stones
     private boolean legalMove(Point p) {
-		if (pieces.size() < 9) {
+		if (pieces.size() < 9 || AIMode) { // the rules go out the window when fighting AI. Turn it back on when I figure out how to make the AI check if it is making legal moves
 			return true;
 		}
 		for (Set<Point> set : set34) {
