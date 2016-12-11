@@ -4,8 +4,10 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class 오목 extends JFrame {
     private static final int offset = 20; // how much space between end of board and boundary
@@ -307,7 +309,7 @@ public class 오목 extends JFrame {
                 if (legalMove(pt)) {
                 	show = pieces.size();
                     created = pt;
-					AI.addPoint(px,py);
+					AI.addPoint(px, py);
                     if (won()) {
 						ifWon = true;
                         if (pieces.size()%2 == 0) {
@@ -323,12 +325,12 @@ public class 오목 extends JFrame {
 							double startTime = System.nanoTime();
 							Point tmp = AI.winningMove();
 							pieces.add(tmp);
-							AI.addPoint(tmp.x,tmp.y);
+							AI.addPoint(tmp.x, tmp.y);
 							double endTime = System.nanoTime();
 							double duration = (endTime - startTime)/1000000;
 							System.out.println("It took "+duration+" ms to calculate the best move");
 							calculating = false;
-							show++;
+							show = pieces.size();
 						}
 						repaint();
 					}
@@ -378,6 +380,7 @@ public class 오목 extends JFrame {
 			AIMode = true;
 			AI = new Jack();
 			pieces.add(new Point(9,9));
+			show++;
 			AI.addPoint(9,9);
 		}
         repaint();
@@ -428,7 +431,7 @@ public class 오목 extends JFrame {
                 for (int i=1; i<frags.length-1; i=i+3) {
                     pieces.add(new Point(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1])));
                     // save some computational resources by NOT calculating threat spaces and shit if we don't have to
-                    if (AIMode) AI.addPoint(Integer.parseInt(frags[i]),Integer.parseInt(frags[i+1]));
+                    if (AIMode) AI.addPoint(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1]));
                 }
                 show = pieces.size();
                 set34 = open3(pieces); // for winning check
@@ -570,6 +573,6 @@ public class 오목 extends JFrame {
     }
 
     public static void main(String[] cheese) {
-        오목 game = new 오목();
+        new 오목();
     }
 }

@@ -1,16 +1,14 @@
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 public class Jack {
 	private int depth = 2*(2)+1, turn = 1; // -1 for white, 1 for black. Depth should be odd
 	private int[][] board; // actual board for storing pieces. Separate from storing board space scores
-	private Map<Point,Map<List<Point>,Integer>> lookup; // threat space (incl. 0) -> sequence -> score
-	private Map<List<Point>,List<List<PI>>> seqs; // sequence -> threat space lines -> space & score
+	private Map<Point, Map<List<Point>, Integer>> lookup; // threat space (incl. 0) -> sequence -> score
+	private Map<List<Point>, List<List<PI>>> seqs; // sequence -> threat space lines -> space & score
 	// TODO: threat depth search using threat scores, detecting any dangerous patterns
-	// TODO: add alpha-beta pruning for minimax tree (whatever that is)
+	// TODO: add alpha-beta pruning in minimax tree for winningmove
 
 	// custom data type
 	public class PI {
@@ -47,33 +45,6 @@ public class Jack {
 		board = new int[19][19];
 		lookup = new HashMap<>();
 		seqs = new HashMap<>();
-		if (오목.TEST) {
-			List<Point> part1 = new ArrayList<>();
-			part1.add(new Point(4,9));
-			part1.add(new Point(7,2));
-			List<List<PI>> part2 = new ArrayList<>();
-			List<PI> part3 = new ArrayList<>();
-			part3.add(new PI(new Point(3,9),8));
-			part3.add(new PI(new Point(2,9),8));
-			part3.add(new PI(new Point(1,9),8));
-			part3.add(new PI(new Point(4,10),8));
-			part3.add(new PI(new Point(4,11),8));
-			part3.add(new PI(new Point(4,12),8));
-			part3.add(new PI(new Point(4,13),8));
-			part2.add(part3);
-			List<PI> part4 = new ArrayList<>();
-			part4.add(new PI(new Point(6,2),8));
-			part4.add(new PI(new Point(5,2),8));
-			part4.add(new PI(new Point(4,2),8));
-			part4.add(new PI(new Point(3,2),8));
-			part4.add(new PI(new Point(7,3),8));
-			part4.add(new PI(new Point(7,4),8));
-			part4.add(new PI(new Point(7,5),8));
-			part4.add(new PI(new Point(7,6),8));
-			part2.add(part4);
-			seqs.put(part1,part2);
-			board[4][9] = 1;
-		}
 	}
 
 	// officially adds point, modifying the actual seqs and lookup
@@ -85,11 +56,10 @@ public class Jack {
 		lookup = hash(seqs);
 	}
 
-	// TODO: implement new sequences
 	// modifies sequences, threat spaces, and scores given a new point
-	private Map<List<Point>,List<List<PI>>> step(int x, int y, Map<List<Point>,List<List<PI>>> seqs,
-												 Map<Point,Map<List<Point>,Integer>> lookup, int turn) {
-		Map<List<Point>,List<List<PI>>> result = new HashMap<>();
+	private Map<List<Point>, List<List<PI>>> step(int x, int y, Map<List<Point>, List<List<PI>>> seqs,
+												 Map<Point, Map<List<Point>, Integer>> lookup, int turn) {
+		Map<List<Point>, List<List<PI>>> result = new HashMap<>();
 		// first, alternate scores as ones that are affected and not affected both need to alternate scores
 		for (List<Point> seq : seqs.keySet()) {
 			List<List<PI>> updatedList = new ArrayList<>();
@@ -111,18 +81,52 @@ public class Jack {
 			result.put(seq,updatedList);
 		}
 		// lookup the point and see which ones it affect
-		if (lookup.containsKey(new Point(x,y))) {
+		if (lookup.containsKey(new Point(x, y))) {
 			// do stuff with those sequences affected
 		} else {
-			// this is a new threat 'sequence' containing only one point. Goes 8-way. Check for blockages.
-			// TODO: how do I check for blockages in all 8 directions without checking 8 sides manually?
+			// this is a new threat 'sequence' containing only one point (goes 8-way)
+			int[] xfactor = {1, 1}, yfactor = {0, 1};
+			List<List<PI>> threatLines = new ArrayList<>();
+			for (int i=0; i<4; i++) {
+				for (int j=0; j<=1; j++) {
+					List<PI> threatLine = new ArrayList<>();
+					boolean clash = false;
+					for (int k=1; k<=5; k++) {
+						if (!clash) {
+							int xt = x + k * xfactor[j];
+							int yt = y + k * yfactor[j];
+							if (0<=xt && xt<19 && 0<=yt && yt<19 /*&& board[xt][yt] == 0*/) {
+								if (k != 5) {
+									threatLine.add(new PI(new Point(xt, yt), 4));
+								} else {
+									threatLine.add(new PI(new Point(xt, yt), 0));
+								}
+							} else {
+								if (!threatLine.isEmpty()) {
+									threatLine.get(k - 2).setI(threatLine.get(k - 2).getI() / 4);
+								}
+								clash = true;
+							}
+						}
+					}
+					if (!threatLine.isEmpty()) threatLines.add(threatLine);
+				}
+				// rotate 90° left
+				int[] temp = Arrays.copyOf(xfactor,2);
+				for (int j=0; j<=1; j++) {
+					xfactor[j] = 0 - yfactor[j];
+					yfactor[j] = temp[j];
+				}
+			}
+			List<Point> point = new ArrayList<>(Arrays.asList(new Point(x, y)));
+			result.put(point, threatLines);
 		}
 		return result;
 	}
 
 	// calculates lookup given a seqs
-	private Map<Point,Map<List<Point>,Integer>> hash(Map<List<Point>,List<List<PI>>> seqs) {
-		Map<Point,Map<List<Point>,Integer>> result = new HashMap<>();
+	private Map<Point, Map<List<Point>, Integer>> hash(Map<List<Point>, List<List<PI>>> seqs) {
+		Map<Point, Map<List<Point>, Integer>> result = new HashMap<>();
 		return result;
 	}
 
