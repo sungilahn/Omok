@@ -28,6 +28,7 @@ public class 오목 extends JFrame {
     // TODO: timer dropdown, specify file format, autosave when game is done
     // TODO: multiplayer like PS6: first try to connect, then load offline/online mode
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
+	// TODO: make it so that if the board is empty and someone chooses a new mode, gamemode is automatically refreshed
 
     // constructor
     public 오목() {

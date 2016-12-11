@@ -50,7 +50,7 @@ public class Jack {
 	// officially adds point, modifying the actual seqs and lookup
 	public void addPoint(int x, int y) {
 		board[x][y] = turn;
-		turn = 0-turn;
+		turn = 0 - turn;
 		// add point to lookup and seqs
 		seqs = step(x,y,seqs,lookup,turn);
 		lookup = hash(seqs);
@@ -127,6 +127,19 @@ public class Jack {
 	// calculates lookup given a seqs
 	private Map<Point, Map<List<Point>, Integer>> hash(Map<List<Point>, List<List<PI>>> seqs) {
 		Map<Point, Map<List<Point>, Integer>> result = new HashMap<>();
+		for (List<Point> seq : seqs.keySet()) {
+			for (List<PI> threatLine : seqs.get(seq)) {
+				for (PI threat : threatLine) {
+					if (!result.containsKey(threat.getP())) {
+						Map<List<Point>, Integer> temp = new HashMap<>();
+						temp.put(seq, threat.getI());
+						result.put(threat.getP(), temp);
+					} else {
+						result.get(threat.getP()).put(seq, threat.getI());
+					}
+				}
+			}
+		}
 		return result;
 	}
 
@@ -134,6 +147,7 @@ public class Jack {
 		System.out.println("<--------test-------->");
 		System.out.println("seqs: "+seqs.toString());
 		System.out.println("lookup: "+lookup.toString());
+		System.out.println(lookup.keySet().size());
 	}
 
 	// return the best move
