@@ -13,7 +13,7 @@ public class 오목 extends JFrame {
     private static final int pieceSize = 15; // radius of pieces
     private static final int fontSize = 20;
     private static final String filePath = "images/background.jpg";
-	private static final boolean TEST = true;
+	public static final boolean TEST = true;
     private Point click3, created;
     private List<Point> pieces;
     private List<Set<Point>> set34;
@@ -24,7 +24,7 @@ public class 오목 extends JFrame {
     private BufferedImage image;
 	private Jack AI;
     // TODO: timer dropdown, specify file format, autosave when game is done
-    // TODO: multiplayer like PS6: initial load offline/online -> connect to application server or launch this(offline mode)
+    // TODO: multiplayer like PS6: first try to connect, then load offline/online mode
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
 
     // constructor
@@ -61,15 +61,17 @@ public class 오목 extends JFrame {
         JComponent canvas = new JComponent() {
             public void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                g.drawImage(image,0,0,offset*2+square*18,offset*2+square*18,null); // set background image to scale with window size
-                for (int i=0; i<19; i++) { // draw base grid
+				// set background image to scale with window size
+                g.drawImage(image,0,0,offset*2+square*18,offset*2+square*18,null);
+                for (int i=0; i<19; i++) { // draw base grid - horizontal, then vertical lines
                     g.setColor(Color.black);
-                    g.drawLine(offset, offset+i*square, offset+18*square, offset+i*square); // draw horizontal lines
+                    g.drawLine(offset, offset+i*square, offset+18*square, offset+i*square);
                     g.drawLine(offset+i*square, offset, offset+i*square, offset+18*square);
                 }
                 for (int x=0; x<3; x++) { // draw guiding dots
                     for (int y=0; y<3; y++) {
-                        g.fillOval(offset+square*(6*x+3)-3, offset+square*(6*y+3)-3, 6, 6); // dot size is fixed at 3
+						// dot size is fixed at 3
+                        g.fillOval(offset+square*(6*x+3)-3, offset+square*(6*y+3)-3, 6, 6);
                     }
                 }
                 drawPieces(g);
@@ -98,7 +100,7 @@ public class 오목 extends JFrame {
         JButton clear = new JButton("재시작");
         clear.addActionListener(e -> clear());
 		String[] states = {"2인용", "컴퓨터 - 백", "컴퓨터 - 흑"};
-		JComboBox<String> stateB = new JComboBox<String>(states);
+		JComboBox<String> stateB = new JComboBox<>(states);
 		stateB.addActionListener(e -> {
 			if (((JComboBox<String>)e.getSource()).getSelectedItem() == "2인용") {
 				startState = 1;
@@ -150,7 +152,7 @@ public class 오목 extends JFrame {
         gui.add(last);
 		if (TEST) {
 			JButton test = new JButton("test");
-			test.addActionListener(e -> /*AI.test()*/ System.out.println("Show = "+show));
+			test.addActionListener(e -> {System.out.println("Show = "+show); AI.test();});
 			gui.add(test);
 		}
         return gui;
@@ -222,35 +224,33 @@ public class 오목 extends JFrame {
         for (int i=0; i<show; i++) {
             if (i%2 == 0) { // black's pieces
                 g.setColor(Color.black);
-                g.fillOval(offset+square*pieces.get(i).x-pieceSize, offset+square*pieces.get(i).y-pieceSize, pieceSize*2, pieceSize*2);
+                g.fillOval(offset+square*pieces.get(i).x-pieceSize, offset+square*pieces.get(i).y-pieceSize,
+						pieceSize*2, pieceSize*2);
                 if (showNum) {
                     g.setColor(Color.white);
-                    if (i<99) {
-                        g.setFont(new Font(font, Font.PLAIN, fontSize));
-                        g.drawString(Integer.toString(i+1), offset+square*pieces.get(i).x-(metrics.stringWidth(Integer.toString(i+1)))/2,
-                                offset+square*pieces.get(i).y-(metrics.getHeight())/2+metrics.getAscent());
-                    } else {
-                        g.setFont(new Font(font, Font.PLAIN, fontSize-4)); // 3-digit numbers get decreased font size
-                        g.drawString(Integer.toString(i+1), offset+square*pieces.get(i).x-(metrics2.stringWidth(Integer.toString(i+1)))/2,
-                                offset+square*pieces.get(i).y-(metrics2.getHeight())/2+metrics2.getAscent());
-                    }
                 }
             } else { // white's pieces
                 g.setColor(Color.white);
-                g.fillOval(offset+square*pieces.get(i).x-pieceSize, offset+square*pieces.get(i).y-pieceSize, pieceSize*2, pieceSize*2);
+                g.fillOval(offset+square*pieces.get(i).x-pieceSize, offset+square*pieces.get(i).y-pieceSize,
+						pieceSize*2, pieceSize*2);
                 if (showNum) {
                     g.setColor(Color.black);
-                    if (i<99) {
-                        g.setFont(new Font(font, Font.PLAIN, fontSize));
-                        g.drawString(Integer.toString(i+1), offset+square*pieces.get(i).x-(metrics.stringWidth(Integer.toString(i+1)))/2,
-                                offset+square*pieces.get(i).y-(metrics.getHeight())/2+metrics.getAscent());
-                    } else {
-                        g.setFont(new Font(font, Font.PLAIN, fontSize-4));
-                        g.drawString(Integer.toString(i+1), offset+square*pieces.get(i).x-(metrics2.stringWidth(Integer.toString(i+1)))/2,
-                                offset+square*pieces.get(i).y-(metrics2.getHeight())/2+metrics2.getAscent());
-                    }
                 }
             }
+            // drawing numbers
+			if (showNum) {
+				if (i<99) {
+					g.setFont(new Font(font, Font.PLAIN, fontSize));
+					g.drawString(Integer.toString(i+1),offset+square*pieces.get(i).x
+							-(metrics.stringWidth(Integer.toString(i+1)))/2,offset+square*pieces.get(i).y
+							-(metrics.getHeight())/2+metrics.getAscent());
+				} else {
+					g.setFont(new Font(font, Font.PLAIN,fontSize-4)); // 3-digits get decreased font size
+					g.drawString(Integer.toString(i+1), offset+square*pieces.get(i).x
+							-(metrics2.stringWidth(Integer.toString(i+1)))/2,offset+square*pieces.get(i).y
+							-(metrics2.getHeight())/2+metrics2.getAscent());
+				}
+			}
         }
     }
 
@@ -266,22 +266,26 @@ public class 오목 extends JFrame {
 							return;
 						}
 						g.setColor(new Color(220,83,74));
-						g.fillOval(offset+square*px-pieceSize, offset+square*py-pieceSize, pieceSize*2, pieceSize*2);
+						g.fillOval(offset+square*px-pieceSize,offset+square*py-pieceSize,
+								pieceSize*2,pieceSize*2);
 						return;
 					}
 					for (Point p : pieces) {
 						if ((p.x-px)*(p.x-px)+(p.y-py)*(p.y-py) < 1) {
 							g.setColor(new Color(220,83,74));
-							g.fillOval(offset+square*px-pieceSize, offset+square*py-pieceSize, pieceSize*2, pieceSize*2);
+							g.fillOval(offset+square*px-pieceSize,offset+square*py-pieceSize,
+									pieceSize*2,pieceSize*2);
 							return;
 						}
 					}
 					if (pieces.size()%2 == 0) {
 						g.setColor(new Color(0,0,0,127));
-						g.fillOval(offset+square*px-pieceSize, offset+square*py-pieceSize, pieceSize*2, pieceSize*2);
+						g.fillOval(offset+square*px-pieceSize, offset+square*py-pieceSize,
+								pieceSize*2, pieceSize*2);
 					} else {
 						g.setColor(new Color(255,255,255,127));
-						g.fillOval(offset+square*px-pieceSize, offset+square*py-pieceSize, pieceSize*2, pieceSize*2);
+						g.fillOval(offset+square*px-pieceSize, offset+square*py-pieceSize,
+								pieceSize*2, pieceSize*2);
 					}
 					return;
 				}
@@ -317,7 +321,9 @@ public class 오목 extends JFrame {
 						if (AIMode) {
 							calculating = true;
 							double startTime = System.nanoTime();
-							pieces.add(AI.winningMove());
+							Point tmp = AI.winningMove();
+							pieces.add(tmp);
+							AI.addPoint(tmp.x,tmp.y);
 							double endTime = System.nanoTime();
 							double duration = (endTime - startTime)/1000000;
 							System.out.println("It took "+duration+" ms to calculate the best move");
@@ -356,8 +362,8 @@ public class 오목 extends JFrame {
     }
 
     private void clear() {
-        pieces = new ArrayList<Point>();
-		set34 = new ArrayList<Set<Point>>();
+        pieces = new ArrayList<>();
+		set34 = new ArrayList<>();
         bUndo = wUndo = 0;
         show = 0;
         ifWon = calculating = false;
@@ -421,7 +427,8 @@ public class 오목 extends JFrame {
                 frags = part[0].split("[\\W]"); // splits on any non-alphabetical character
                 for (int i=1; i<frags.length-1; i=i+3) {
                     pieces.add(new Point(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1])));
-					AI.addPoint(Integer.parseInt(frags[i]),Integer.parseInt(frags[i+1]));
+                    // save some computational resources by NOT calculating threat spaces and shit if we don't have to
+                    if (AIMode) AI.addPoint(Integer.parseInt(frags[i]),Integer.parseInt(frags[i+1]));
                 }
                 show = pieces.size();
                 set34 = open3(pieces); // for winning check
@@ -444,7 +451,9 @@ public class 오목 extends JFrame {
 
     // house rule: bans a move that simultaneously forms two open rows of three stones
     private boolean legalMove(Point p) {
-		if (pieces.size() < 9 || AIMode) { // the rules go out the window when fighting AI. Turn it back on when I figure out how to make the AI check if it is making legal moves
+		// the rules go out the window when fighting AI.
+		// TODO: Turn it back on when I figure out how to make the AI check if it is making legal moves
+		if (pieces.size() < 9 || AIMode) {
 			return true;
 		}
 		for (Set<Point> set : set34) {
@@ -467,7 +476,7 @@ public class 오목 extends JFrame {
         }
         for (Set<Point> set : set34) {
             if (set.size() == 4) {
-                List<Point> points = new ArrayList<Point>();
+                List<Point> points = new ArrayList<>();
                 for (Point p : set) {
                     points.add(p);
                 }
@@ -477,8 +486,9 @@ public class 오목 extends JFrame {
                     points.sort((Point o1, Point o2) -> o1.x - o2.x);
                 }
                 for (int i=(pieces.size()%2+1)%2; i<pieces.size(); i=i+2) {
-                    if (pieces.get(i).equals(new Point(2*points.get(0).x-points.get(1).x, 2*points.get(0).y-points.get(1).y))
-                            || pieces.get(i).equals(new Point(2*points.get(3).x-points.get(2).x, 2*points.get(3).y-points.get(2).y))) {
+                    if (pieces.get(i).equals(new Point(2*points.get(0).x-points.get(1).x,2*points.get(0).y
+							-points.get(1).y)) || pieces.get(i).equals(new Point(2*points.get(3).x-points.get(2).x,
+							2*points.get(3).y-points.get(2).y))) {
                         return true;
                     }
                 }
@@ -487,10 +497,10 @@ public class 오목 extends JFrame {
         return false;
     }
 
-    // finds and returns list of all sets of 3 adjacent points without any blockages and 4 that have at least one opening
-	// quick and dirty way of finding open sets of 3 and 4, mainly for checking for users' legal move and win conditions
+    // finds list of all sets of 3 adjacent points without any blockages and 4 that have at least one opening
+	// quick and dirty way of finding open sets of 3 and 4, for checking for users' legal move and win conditions
     private List<Set<Point>> open3(List<Point> points) {
-        List<Set<Point>> result = new ArrayList<Set<Point>>();
+        List<Set<Point>> result = new ArrayList<>();
         for (int i=(points.size()%2+1)%2; i<points.size(); i=i+2) {
             Point p1 = points.get(i);
             for (int j=i+2; j<points.size(); j=j+2) {
@@ -518,7 +528,8 @@ public class 오목 extends JFrame {
 									}
 								}
 								if (passed) {
-									for (int n=points.size()%2; n<points.size(); n=n+2) { // if either is of other color, throw it out
+									// if either is of other color, throw it out
+									for (int n=points.size()%2; n<points.size(); n=n+2) {
 										if (points.get(n).equals(p41) || points.get(n).equals(p42)) {
 											passed = false;
 											blocked = true;
@@ -527,7 +538,7 @@ public class 오목 extends JFrame {
 									if (!blocked) {
 										for (int n=(points.size()%2+1)%2; n<points.size(); n=n+2) {
 											if (points.get(n).equals(p41) || points.get(n).equals(p42)) {
-												Set<Point> halfOpenSet4 = new HashSet<Point>();
+												Set<Point> halfOpenSet4 = new HashSet<>();
 												halfOpenSet4.add(p1);
 												halfOpenSet4.add(p2);
 												halfOpenSet4.add(p3);
@@ -542,7 +553,7 @@ public class 오목 extends JFrame {
 								}
 							}
 							if (passed) {
-								Set<Point> openSet3 = new HashSet<Point>();
+								Set<Point> openSet3 = new HashSet<>();
 								openSet3.add(p1);
 								openSet3.add(p2);
 								openSet3.add(p3);
