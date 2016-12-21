@@ -5,7 +5,7 @@ import java.util.List;
 public class Jack {
 	private int depth = 2*(2)+1, turn = 1; // -1 for white, 1 for black. Depth should be odd
 	private int[][] board; // actual board for storing pieces. Separate from storing board space scores
-	private Map<Point, Map<Point, Integer>> lookup; // threat space (incl. 0) -> threat -> score
+	private Map<Point, List<PI>> lookup; // threat space (incl. 0) -> threats -> score
 	private Map<Point, List<List<PI>>> seqs; // threat -> threat space lines -> space & score
 	// TODO: threat depth search using threat scores, detecting any dangerous patterns
 	// TODO: add alpha-beta pruning in minimax tree for winningmove
@@ -59,7 +59,7 @@ public class Jack {
 
 	// modifies sequences, threat spaces, and scores given a new point
 	private Map<Point, List<List<PI>>> step(int x, int y, Map<Point, List<List<PI>>> seqs,
-												 Map<Point, Map<Point, Integer>> lookup, int turn) {
+												 Map<Point, List<PI>> lookup, int turn) {
 		Map<Point, List<List<PI>>> result = new HashMap<>();
 		// first, alternate scores as ones that are affected and not affected both need to alternate scores
 		for (Point seq : seqs.keySet()) {
@@ -82,7 +82,8 @@ public class Jack {
 			result.put(seq,updatedList);
 		}
 		// lookup the point and see which ones it affect
-		if (lookup.containsKey(new Point(x, y))) {
+		Point tmp = new Point(x, y);
+		if (lookup.containsKey(tmp)) {
 			// TODO: do stuff with those sequences affected
 		} else {
 			// this is a new threat 'sequence' containing only one point (goes 8-way)
@@ -119,24 +120,24 @@ public class Jack {
 					yfactor[j] = temp[j];
 				}
 			}
-			Point point = new Point(x, y);
+			Point point = tmp;
 			result.put(point, threatLines);
 		}
 		return result;
 	}
 
 	// calculates lookup given a seqs
-	private Map<Point, Map<Point, Integer>> hash(Map<Point, List<List<PI>>> seqs) {
-		Map<Point, Map<Point, Integer>> result = new HashMap<>();
+	private Map<Point, List<PI>> hash(Map<Point, List<List<PI>>> seqs) {
+		Map<Point, List<PI>> result = new HashMap<>();
 		for (Point seq : seqs.keySet()) {
 			for (List<PI> threatLine : seqs.get(seq)) {
 				for (PI threat : threatLine) {
 					if (!result.containsKey(threat.getP())) {
-						Map<Point, Integer> temp = new HashMap<>();
-						temp.put(seq, threat.getI());
+						List<PI> temp = new ArrayList<>();
+						temp.add(new PI(seq, threat.getI()));
 						result.put(threat.getP(), temp);
 					} else {
-						result.get(threat.getP()).put(seq, threat.getI());
+						result.get(threat.getP()).add(new PI(seq, threat.getI()));
 					}
 				}
 			}
