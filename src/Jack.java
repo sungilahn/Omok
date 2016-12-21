@@ -5,10 +5,11 @@ import java.util.List;
 public class Jack {
 	private int depth = 2*(2)+1, turn = 1; // -1 for white, 1 for black. Depth should be odd
 	private int[][] board; // actual board for storing pieces. Separate from storing board space scores
-	private Map<Point, Map<List<Point>, Integer>> lookup; // threat space (incl. 0) -> sequence -> score
-	private Map<List<Point>, List<List<PI>>> seqs; // sequence -> threat space lines -> space & score
+	private Map<Point, Map<Point, Integer>> lookup; // threat space (incl. 0) -> threat -> score
+	private Map<Point, List<List<PI>>> seqs; // threat -> threat space lines -> space & score
 	// TODO: threat depth search using threat scores, detecting any dangerous patterns
 	// TODO: add alpha-beta pruning in minimax tree for winningmove
+	// NOTE: Jack maximizes points for whoever has the current turn
 
 	// custom data type
 	public class PI {
@@ -57,16 +58,16 @@ public class Jack {
 	}
 
 	// modifies sequences, threat spaces, and scores given a new point
-	private Map<List<Point>, List<List<PI>>> step(int x, int y, Map<List<Point>, List<List<PI>>> seqs,
-												 Map<Point, Map<List<Point>, Integer>> lookup, int turn) {
-		Map<List<Point>, List<List<PI>>> result = new HashMap<>();
+	private Map<Point, List<List<PI>>> step(int x, int y, Map<Point, List<List<PI>>> seqs,
+												 Map<Point, Map<Point, Integer>> lookup, int turn) {
+		Map<Point, List<List<PI>>> result = new HashMap<>();
 		// first, alternate scores as ones that are affected and not affected both need to alternate scores
-		for (List<Point> seq : seqs.keySet()) {
+		for (Point seq : seqs.keySet()) {
 			List<List<PI>> updatedList = new ArrayList<>();
 			for (List<PI> seqFrag : seqs.get(seq)) {
 				List<PI> newList = new ArrayList<>(seqFrag);
 				// if color of sequence is the same as the color of whoever just put down their stone
-				if (board[seq.get(0).x][seq.get(0).y] == turn) {
+				if (board[seq.x][seq.y] == turn) {
 					for (PI spaceScore : newList) {
 						// multiply all scores by 2
 						spaceScore.setI(spaceScore.getI() * 2);
@@ -97,7 +98,7 @@ public class Jack {
 							int yt = y + k * yfactor[j];
 							if (0<=xt && xt<19 && 0<=yt && yt<19 /*&& board[xt][yt] == 0*/) {
 								if (k != 5) {
-									threatLine.add(new PI(new Point(xt, yt), 4));
+									threatLine.add(new PI(new Point(xt, yt), -4 * turn));
 								} else {
 									threatLine.add(new PI(new Point(xt, yt), 0));
 								}
@@ -118,20 +119,20 @@ public class Jack {
 					yfactor[j] = temp[j];
 				}
 			}
-			List<Point> point = new ArrayList<>(Arrays.asList(new Point(x, y)));
+			Point point = new Point(x, y);
 			result.put(point, threatLines);
 		}
 		return result;
 	}
 
 	// calculates lookup given a seqs
-	private Map<Point, Map<List<Point>, Integer>> hash(Map<List<Point>, List<List<PI>>> seqs) {
-		Map<Point, Map<List<Point>, Integer>> result = new HashMap<>();
-		for (List<Point> seq : seqs.keySet()) {
+	private Map<Point, Map<Point, Integer>> hash(Map<Point, List<List<PI>>> seqs) {
+		Map<Point, Map<Point, Integer>> result = new HashMap<>();
+		for (Point seq : seqs.keySet()) {
 			for (List<PI> threatLine : seqs.get(seq)) {
 				for (PI threat : threatLine) {
 					if (!result.containsKey(threat.getP())) {
-						Map<List<Point>, Integer> temp = new HashMap<>();
+						Map<Point, Integer> temp = new HashMap<>();
 						temp.put(seq, threat.getI());
 						result.put(threat.getP(), temp);
 					} else {
