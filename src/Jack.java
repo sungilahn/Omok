@@ -82,7 +82,7 @@ public class Jack {
 		}
 		// lookup the point and see which ones it affect
 		if (lookup.containsKey(new Point(x, y))) {
-			// do stuff with those sequences affected
+			// TODO: do stuff with those sequences affected
 		} else {
 			// this is a new threat 'sequence' containing only one point (goes 8-way)
 			int[] xfactor = {1, 1}, yfactor = {0, 1};

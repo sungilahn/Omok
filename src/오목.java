@@ -116,7 +116,6 @@ public class 오목 extends JFrame {
 		});
 		JButton first = new JButton("<<");
 		//first.setPreferredSize(new Dimension(30, 20)); // TODO: how to set button size without changing style?
-		// seriously, Swing is fucking weird
 		first.addActionListener(e -> {
 			if (pieces.size() > 0) {
 				show = 1;
@@ -232,7 +231,7 @@ public class 오목 extends JFrame {
                 if (showNum) {
                     g.setColor(Color.white);
                 }
-            } else { // white's pieces
+            } else {
                 g.setColor(Color.white);
                 g.fillOval(offset+square*pieces.get(i).x-pieceSize, offset+square*pieces.get(i).y-pieceSize,
 						pieceSize*2, pieceSize*2);
@@ -240,8 +239,7 @@ public class 오목 extends JFrame {
                     g.setColor(Color.black);
                 }
             }
-            // drawing numbers
-			if (showNum) {
+			if (showNum) { // drawing numbers
 				if (i<99) {
 					g.setFont(new Font(font, Font.PLAIN, fontSize));
 					g.drawString(Integer.toString(i+1),offset+square*pieces.get(i).x
@@ -310,7 +308,7 @@ public class 오목 extends JFrame {
                 if (legalMove(pt)) {
                 	show = pieces.size();
                     created = pt;
-					AI.addPoint(px, py);
+                    if (TEST || AIMode) AI.addPoint(px, py);
                     if (won()) {
 						ifWon = true;
                         if (pieces.size()%2 == 0) {
@@ -346,6 +344,7 @@ public class 오목 extends JFrame {
     }
 
     private void undo() {
+    	// TODO: fix Jack's interaction with undo
         if (!ifWon) {
             if (pieces.size()%2 == 1 && bUndo<3) {
                 pieces.remove(pieces.size()-1);
@@ -372,14 +371,13 @@ public class 오목 extends JFrame {
         ifWon = calculating = false;
         created = null;
         click3 = null;
+        AI = new Jack();
 		if (startState == 1) { // 2P
 			AIMode = false;
 		} else if (startState == 2) { // COM WHITE
 			AIMode = true;
-			AI = new Jack();
 		} else {
 			AIMode = true;
-			AI = new Jack();
 			pieces.add(new Point(9,9));
 			show++;
 			AI.addPoint(9,9);
