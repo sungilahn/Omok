@@ -79,49 +79,102 @@ public class Jack {
 				}
 				updatedList.add(newList);
 			}
-			result.put(seq,updatedList);
+			result.put(seq, updatedList);
 		}
 		// lookup the point and see which ones it affect
-		Point tmp = new Point(x, y);
-		if (lookup.containsKey(tmp)) {
-			// TODO: do stuff with those sequences affected
-		} else {
-			// this is a new threat 'sequence' containing only one point (goes 8-way)
-			int[] xfactor = {1, 1}, yfactor = {0, 1};
-			List<List<PI>> threatLines = new ArrayList<>();
-			for (int i=0; i<4; i++) {
-				for (int j=0; j<=1; j++) {
-					List<PI> threatLine = new ArrayList<>();
-					boolean clash = false;
-					for (int k=1; k<=5; k++) {
-						if (!clash) {
-							int xt = x + k * xfactor[j];
-							int yt = y + k * yfactor[j];
-							if (0<=xt && xt<19 && 0<=yt && yt<19 /*&& board[xt][yt] == 0*/) {
-								if (k != 5) {
-									threatLine.add(new PI(new Point(xt, yt), -4 * turn));
-								} else {
-									threatLine.add(new PI(new Point(xt, yt), 0));
+		Point latestPoint = new Point(x, y); // the point that is affecting
+		if (lookup.containsKey(latestPoint)) {
+			for (PI threats : lookup.get(latestPoint)) {
+				Point threat = threats.getP();
+				if (board[threat.x][threat.y] != turn) { // same color
+					// first, update the score of affected threat space
+					// TODO: optimize search by limiting search based on relative location of the new stone
+					for (int i=0; i<8; i++) {
+						for (int j=0; j<seqs.get(threat).get(i).size(); j++) {
+							if (seqs.get(threat).get(i).get(j).getP().equals(latestPoint)) {
+								result.get(threat).get(i).get(j).setI(0);
+							}
+						}
+					}
+				} else {
+					// TODO: opposing color - check other side for <5 then remove threat spaces accordingly
+					boolean blocked = false;
+					for (int i=0; i<8; i++) {
+						for (int j=0; j<seqs.get(threat).get(i).size(); j++) {
+							if (!blocked) {
+								if (seqs.get(threat).get(i).get(j).getP().equals(latestPoint)) {
+									List<PI> newLine = new ArrayList<>();
+									for (int k=0; k<j; k++) {
+										newLine.add(seqs.get(threat).get(i).get(k));
+									}
+									if (j > 0) { // reduce score of the stone adjacent to the opposing piece by 1/4th
+										newLine.set(j-1, new PI(newLine.get(j-1).getP(), newLine.get(j-1).getI()/4));
+									} else if (j == 0) { // reduce score of other side by 1/4
+										int opposite = (i + 4) % 8;
+										for (int k=0; k<seqs.get(threat).get(opposite).size(); k++) {
+											seqs.get(threat).get(opposite).get(k).setI(seqs.get(threat)
+													.get(opposite).get(k).getI() / 4);
+										}
+									}
+									result.get(threat).set(i, newLine);
+									blocked = true;
 								}
-							} else {
+							}
+						}
+					}
+				}
+			}
+		}
+		// this is a new threat 'sequence' containing only one point (goes 8-way)
+		// insert the threat point - expand until board boundary or opposite color is reached. when same color, score 0
+		int[] xfactor = {1, 1}, yfactor = {0, 1};
+		List<List<PI>> threatLines = new ArrayList<>();
+		int blocked = -1;
+		for (int i=0; i<4; i++) {
+			for (int j=0; j<=1; j++) {
+				List<PI> threatLine = new ArrayList<>();
+				boolean clash = false;
+				for (int k=1; k<=5; k++) {
+					if (!clash) {
+						int xt = x + k * xfactor[j];
+						int yt = y + k * yfactor[j];
+						if (board[xt][yt] == 0 && 0<=xt && xt<19 && 0<=yt && yt<19) {
+							if (k != 5) { // actual threat space
+								threatLine.add(new PI(new Point(xt, yt), -4 * turn)); // starting value
+							} else { // 0-space
+								threatLine.add(new PI(new Point(xt, yt), 0));
+							}
+						} else {
+							if (board[xt][yt] == -1*turn) { // same color
+								threatLine.add(new PI(new Point(xt, yt), 0));
+							} else { // either a differing color or out of bounds
 								if (!threatLine.isEmpty()) {
 									threatLine.get(k - 2).setI(threatLine.get(k - 2).getI() / 4);
+								}
+								if (k == 1) {
+									blocked = 2 * i + j;
 								}
 								clash = true;
 							}
 						}
 					}
-					if (!threatLine.isEmpty()) threatLines.add(threatLine);
 				}
-				// rotate 90° left
-				int[] temp = Arrays.copyOf(xfactor,2);
-				for (int j=0; j<=1; j++) {
-					xfactor[j] = 0 - yfactor[j];
-					yfactor[j] = temp[j];
-				}
+					/*if (!threatLine.isEmpty())*/ threatLines.add(threatLine);
 			}
-			Point point = tmp;
-			result.put(point, threatLines);
+			// rotate 90° left
+			int[] temp = Arrays.copyOf(xfactor,2);
+			for (int j=0; j<=1; j++) {
+				xfactor[j] = 0 - yfactor[j];
+				yfactor[j] = temp[j];
+			}
+		}
+		result.put(latestPoint, threatLines);
+		// adjusting score of threat spaces of opposite side of wherever an opposing piece is directly touching
+		if (blocked >= 0) {
+			for (int i=0; i<result.get(latestPoint).get((blocked + 4) % 8).size(); i++) {
+				result.get(latestPoint).get((blocked + 4) % 8).get(i).setI(result.get(latestPoint)
+						.get((blocked + 4) % 8).get(i).getI() / 4);
+			}
 		}
 		return result;
 	}
@@ -149,7 +202,7 @@ public class Jack {
 		System.out.println("<--------test-------->");
 		System.out.println("seqs: "+seqs.toString());
 		System.out.println("lookup: "+lookup.toString());
-		System.out.println(lookup.keySet().size());
+		System.out.println("number of threat spaces: "+lookup.keySet().size());
 	}
 
 	// return the best move

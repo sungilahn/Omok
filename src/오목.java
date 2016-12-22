@@ -15,7 +15,7 @@ public class 오목 extends JFrame {
     private static final int pieceSize = 15; // radius of pieces
     private static final int fontSize = 20;
     private static final String filePath = "images/background.jpg";
-	public static final boolean TEST = true;
+	private static final boolean TEST = true;
     private Point click3, created;
     private List<Point> pieces;
     private List<Set<Point>> set34;
@@ -56,7 +56,7 @@ public class 오목 extends JFrame {
         pack();
 		this.setVisible(true);
 		// initialize game
-        pieces = new ArrayList<Point>();
+        pieces = new ArrayList<>();
 		AI = new Jack();
     }
 
@@ -344,8 +344,8 @@ public class 오목 extends JFrame {
     }
 
     private void undo() {
-    	// TODO: fix Jack's interaction with undo
-        if (!ifWon) {
+    	// TODO: fix Jack's interaction with undo, then restore the undo by removing if statement with AIMode
+        if (!AIMode && !ifWon) {
             if (pieces.size()%2 == 1 && bUndo<3) {
                 pieces.remove(pieces.size()-1);
                 bUndo++;
