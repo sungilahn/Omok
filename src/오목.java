@@ -102,9 +102,14 @@ public class 오목 extends JFrame {
     }
 
     private JComponent setupGUI() {
-        JButton undo = new JButton("한수 무르기");
+		JButton undo = new JButton("한수 무르기");
         undo.addActionListener(e -> undo());
-        JButton clear = new JButton("재시작");
+        JButton clear;
+        if (!TEST) {
+        	clear = new JButton("재시작");
+		} else {
+        	clear = new JButton("restart");
+		}
         clear.addActionListener(e -> clear());
 		String[] states = {"2인용", "컴퓨터 - 백", "컴퓨터 - 흑"};
 		JComboBox<String> stateB = new JComboBox<>(states);
@@ -367,7 +372,7 @@ public class 오목 extends JFrame {
 
     private void undo() {
     	// TODO: fix Jack's interaction with undo, then restore the undo by removing if statement with AIMode
-        if (!AIMode && !ifWon) {
+        if (!TEST && !AIMode && !ifWon) {
             if (pieces.size()%2 == 1 && bUndo<3) {
                 pieces.remove(pieces.size()-1);
                 bUndo++;
