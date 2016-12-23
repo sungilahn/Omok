@@ -34,12 +34,14 @@ public class 오목 extends JFrame {
     public 오목() {
         super("오목");
         // load in background here and not at paintComponent to greatly boost FPS
-        try {
-            image = ImageIO.read(getClass().getClassLoader().getResourceAsStream(filePath));
-        } catch (IOException e) {
-            System.err.println("이미지가 "+filePath+"' 에 존재하지 않습니다");
-            System.exit(-1);
-        }
+		if (!TEST) {
+			try {
+				image = ImageIO.read(getClass().getClassLoader().getResourceAsStream(filePath));
+			} catch (IOException e) {
+				System.err.println("이미지가 "+filePath+"' 에 존재하지 않습니다");
+				System.exit(-1);
+			}
+		}
         // Helpers to create the canvas and GUI (buttons, etc.)
         JComponent canvas = setupCanvas();
         JComponent gui = setupGUI();
@@ -65,18 +67,20 @@ public class 오목 extends JFrame {
             public void paintComponent(Graphics g) {
                 super.paintComponent(g);
 				// set background image to scale with window size
-                g.drawImage(image,0,0,offset*2+square*18,offset*2+square*18,null);
-                for (int i=0; i<19; i++) { // draw base grid - horizontal, then vertical lines
-                    g.setColor(Color.black);
-                    g.drawLine(offset, offset+i*square, offset+18*square, offset+i*square);
-                    g.drawLine(offset+i*square, offset, offset+i*square, offset+18*square);
-                }
-                for (int x=0; x<3; x++) { // draw guiding dots
-                    for (int y=0; y<3; y++) {
-						// dot size is fixed at 3
-                        g.fillOval(offset+square*(6*x+3)-3, offset+square*(6*y+3)-3, 6, 6);
-                    }
-                }
+				if (!TEST) {
+					g.drawImage(image,0,0,offset*2+square*18,offset*2+square*18,null);
+					for (int i=0; i<19; i++) { // draw base grid - horizontal, then vertical lines
+						g.setColor(Color.black);
+						g.drawLine(offset, offset+i*square, offset+18*square, offset+i*square);
+						g.drawLine(offset+i*square, offset, offset+i*square, offset+18*square);
+					}
+					for (int x=0; x<3; x++) { // draw guiding dots
+						for (int y=0; y<3; y++) {
+							// dot size is fixed at 3
+							g.fillOval(offset+square*(6*x+3)-3, offset+square*(6*y+3)-3, 6, 6);
+						}
+					}
+				}
                 drawPieces(g);
                 drawOverlay(g);
             }
@@ -242,17 +246,35 @@ public class 오목 extends JFrame {
 			if (showNum) { // drawing numbers
 				if (i<99) {
 					g.setFont(new Font(font, Font.PLAIN, fontSize));
-					g.drawString(Integer.toString(i+1),offset+square*pieces.get(i).x
-							-(metrics.stringWidth(Integer.toString(i+1)))/2,offset+square*pieces.get(i).y
-							-(metrics.getHeight())/2+metrics.getAscent());
+					g.drawString(Integer.toString(i + 1), offset + square * pieces.get(i).x
+							- (metrics.stringWidth(Integer.toString(i + 1))) / 2,offset+square*pieces.get(i).y
+							- (metrics.getHeight()) / 2 + metrics.getAscent());
 				} else {
-					g.setFont(new Font(font, Font.PLAIN,fontSize-4)); // 3-digits get decreased font size
-					g.drawString(Integer.toString(i+1), offset+square*pieces.get(i).x
-							-(metrics2.stringWidth(Integer.toString(i+1)))/2,offset+square*pieces.get(i).y
-							-(metrics2.getHeight())/2+metrics2.getAscent());
+					g.setFont(new Font(font, Font.PLAIN,fontSize - 4)); // 3-digits get decreased font size
+					g.drawString(Integer.toString(i + 1), offset + square * pieces.get(i).x
+							- (metrics2.stringWidth(Integer.toString(i + 1))) / 2,offset+square*pieces.get(i).y
+							- (metrics2.getHeight()) / 2 + metrics2.getAscent());
 				}
 			}
         }
+        if (TEST) {
+			g.setFont(new Font(font, Font.PLAIN, fontSize - 4));
+			int[][] scores = AI.getScores();
+        	for (int i=0; i<19; i++) {
+        		for (int j=0; j<19; j++) {
+        			if (scores[i][j] > 0) {
+						g.setColor(Color.blue);
+					} else if (scores[i][j] < 0) {
+						g.setColor(Color.red);
+					} else {
+        				g.setColor(Color.gray);
+					}
+        			g.drawString(Integer.toString(scores[i][j]), offset + square * i
+						- (metrics2.stringWidth(Integer.toString(scores[i][j]))) / 2, offset + square * j
+						- (metrics2.getHeight()) / 2 + metrics2.getAscent());
+				}
+			}
+		}
     }
 
     private void drawOverlay(Graphics g) {

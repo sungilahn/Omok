@@ -1,10 +1,11 @@
 import java.awt.*;
 import java.util.*;
 import java.util.List;
+import java.util.stream.IntStream;
 
 public class Jack {
 	private int depth = 2*(2)+1, turn = 1; // -1 for white, 1 for black. Depth should be odd
-	private int[][] board; // actual board for storing pieces. Separate from storing board space scores
+	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<PI>> lookup; // threat space (incl. 0) -> threats -> score
 	private Map<Point, List<List<PI>>> seqs; // threat -> threat space lines -> space & score
 	// TODO: threat depth search using threat scores, detecting any dangerous patterns
@@ -46,6 +47,7 @@ public class Jack {
 		board = new int[19][19];
 		lookup = new HashMap<>();
 		seqs = new HashMap<>();
+		scores = new int[19][19];
 	}
 
 	// officially adds point, modifying the actual seqs and lookup
@@ -55,6 +57,7 @@ public class Jack {
 		// add point to lookup and seqs
 		seqs = step(x,y,seqs,lookup,turn);
 		lookup = hash(seqs);
+		scores = calculateScores(lookup);
 	}
 
 	// modifies sequences, threat spaces, and scores given a new point
@@ -127,7 +130,7 @@ public class Jack {
 		}
 		// this is a new threat 'sequence' containing only one point (goes 8-way)
 		// insert the threat point - expand until board boundary or opposite color is reached. when same color, score 0
-		int[] xfactor = {1, 1}, yfactor = {0, 1};
+		int[] xFactor = {1, 1}, yFactor = {0, 1};
 		List<List<PI>> threatLines = new ArrayList<>();
 		int blocked = -1;
 		for (int i=0; i<4; i++) {
@@ -136,18 +139,18 @@ public class Jack {
 				boolean clash = false;
 				for (int k=1; k<=5; k++) {
 					if (!clash) {
-						int xt = x + k * xfactor[j];
-						int yt = y + k * yfactor[j];
-						if (board[xt][yt] == 0 && 0<=xt && xt<19 && 0<=yt && yt<19) {
-							if (k != 5) { // actual threat space
-								threatLine.add(new PI(new Point(xt, yt), -4 * turn)); // starting value
-							} else { // 0-space
+						int xt = x + k * xFactor[j];
+						int yt = y + k * yFactor[j];
+						if (0<=xt && xt<19 && 0<=yt && yt<19) {
+							if (board[xt][yt] == 0) {
+								if (k != 5) { // actual threat space
+									threatLine.add(new PI(new Point(xt, yt), -4 * turn)); // starting value
+								} else { // 0-space
+									threatLine.add(new PI(new Point(xt, yt), 0));
+								}
+							} else if (board[xt][yt] == -1*turn) {
 								threatLine.add(new PI(new Point(xt, yt), 0));
-							}
-						} else {
-							if (board[xt][yt] == -1*turn) { // same color
-								threatLine.add(new PI(new Point(xt, yt), 0));
-							} else { // either a differing color or out of bounds
+							} else {
 								if (!threatLine.isEmpty()) {
 									threatLine.get(k - 2).setI(threatLine.get(k - 2).getI() / 4);
 								}
@@ -156,16 +159,25 @@ public class Jack {
 								}
 								clash = true;
 							}
+						} else {
+							// either a differing color or out of bounds
+							if (!threatLine.isEmpty()) {
+								threatLine.get(k - 2).setI(threatLine.get(k - 2).getI() / 4);
+							}
+							if (k == 1) {
+								blocked = 2 * i + j;
+							}
+							clash = true;
 						}
 					}
 				}
 					/*if (!threatLine.isEmpty())*/ threatLines.add(threatLine);
 			}
 			// rotate 90° left
-			int[] temp = Arrays.copyOf(xfactor,2);
+			int[] temp = Arrays.copyOf(xFactor,2);
 			for (int j=0; j<=1; j++) {
-				xfactor[j] = 0 - yfactor[j];
-				yfactor[j] = temp[j];
+				xFactor[j] = 0 - yFactor[j];
+				yFactor[j] = temp[j];
 			}
 		}
 		result.put(latestPoint, threatLines);
@@ -198,11 +210,51 @@ public class Jack {
 		return result;
 	}
 
+	private int[][] calculateScores(Map<Point, List<PI>> lookup) {
+		int[][] result = new int[19][19];
+		for (Point threatSpace : lookup.keySet()) {
+			if (lookup.get(threatSpace).size() == 1) {
+				result[threatSpace.x][threatSpace.y] = lookup.get(threatSpace).get(0).getI();
+			} else {
+				int black = 0, white = 0;
+				for (PI threatPI : lookup.get(threatSpace)) {
+					if (threatPI.getI() != 0) {
+						if (board[threatPI.getP().x][threatPI.getP().y] == 1) {
+							if (black == 0) {
+								black = threatPI.getI();
+							} else {
+								black *= (threatPI.getI() / 2);
+							}
+						} else {
+							if (white == 0) {
+								white = threatPI.getI();
+							} else {
+								white *= (threatPI.getI() / -2);
+							}
+						}
+					}
+				}
+				if (black == 0) {
+					result[threatSpace.x][threatSpace.y] = white;
+				} else if (white == 0) {
+					result[threatSpace.x][threatSpace.y] = black;
+				} else {
+					result[threatSpace.x][threatSpace.y] = turn * (white - black);
+				}
+			}
+		}
+		return result;
+	}
+
 	public void test() {
 		System.out.println("<--------test-------->");
 		System.out.println("seqs: "+seqs.toString());
 		System.out.println("lookup: "+lookup.toString());
 		System.out.println("number of threat spaces: "+lookup.keySet().size());
+	}
+
+	public int[][] getScores() {
+		return scores;
 	}
 
 	// return the best move
