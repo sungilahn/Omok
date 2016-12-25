@@ -368,7 +368,7 @@ public class 오목 extends JFrame {
                 }
             }
         }
-    }
+	}
 
     private void undo() {
     	// TODO: fix Jack's interaction with undo, then restore the undo by removing if statement with AIMode

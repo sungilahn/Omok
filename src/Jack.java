@@ -7,8 +7,9 @@ public class Jack {
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<PI>> lookup; // threat space (incl. 0) -> threats -> score
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score
+	private double[] time;
 	// TODO: threat depth search using threat scores, detecting any dangerous patterns
-	// TODO: add alpha-beta pruning in minimax tree for winningmove
+	// TODO: add alpha-beta pruning in minimax tree for winningMove
 	// NOTE: Jack maximizes points for whoever has the current turn
 
 	// custom data type
@@ -47,6 +48,7 @@ public class Jack {
 		lookup = new HashMap<>();
 		threatSpaces = new HashMap<>();
 		scores = new int[19][19];
+		time = new double[8];
 	}
 
 	// officially adds point, modifying the actual threatSpaces and lookup
@@ -55,13 +57,17 @@ public class Jack {
 		turn = 0 - turn;
 		// add point to lookup and threatSpaces
 		threatSpaces = step(x,y, threatSpaces,lookup,turn);
+		time[5] = System.nanoTime();
 		lookup = hash(threatSpaces);
+		time[6] = System.nanoTime();
 		scores = calculateScores(lookup);
+		time[7] = System.nanoTime();
 	}
 
 	// modifies sequences, threat spaces, and scores given a new point
 	private Map<Point, List<List<PI>>> step(int x, int y, Map<Point, List<List<PI>>> threatSpaces,
 												 Map<Point, List<PI>> lookup, int turn) {
+		time[0] = System.nanoTime();
 		Map<Point, List<List<PI>>> result = new HashMap<>();
 		// first, alternate scores as ones that are affected and not affected both need to alternate scores
 		for (Point threat : threatSpaces.keySet()) {
@@ -83,6 +89,7 @@ public class Jack {
 			}
 			result.put(threat, updatedList);
 		}
+		time[1] = System.nanoTime();
 		// lookup the point and see which ones it affect
 		Point latestPoint = new Point(x, y); // the point that is affecting
 		if (lookup.containsKey(latestPoint)) {
@@ -103,35 +110,34 @@ public class Jack {
 					boolean blocked = false;
 					for (int i=0; i<8; i++) {
 						for (int j=0; j<threatSpaces.get(threat).get(i).size(); j++) {
-							if (!blocked) {
-								if (threatSpaces.get(threat).get(i).get(j).getP().equals(latestPoint)) {
-									List<PI> newLine = new ArrayList<>();
-									for (int k=0; k<j; k++) {
-										newLine.add(threatSpaces.get(threat).get(i).get(k));
-									}
-									if (j > 0) { // reduce score of the stone adjacent to the opposing piece by 1/4th
-										newLine.set(j-1, new PI(newLine.get(j-1).getP(), newLine.get(j-1).getI()/4));
-									} else if (j == 0) { // reduce score of other side by 1/4
-										int opposite = (i + 4) % 8;
-										for (int k=0; k<threatSpaces.get(threat).get(opposite).size(); k++) {
-											threatSpaces.get(threat).get(opposite).get(k).setI(threatSpaces.get(threat)
-													.get(opposite).get(k).getI() / 4);
-										}
-									}
-									result.get(threat).set(i, newLine);
-									blocked = true;
+							if (!blocked && threatSpaces.get(threat).get(i).get(j).getP().equals(latestPoint)) {
+								List<PI> newLine = new ArrayList<>();
+								for (int k=0; k<j; k++) {
+									newLine.add(threatSpaces.get(threat).get(i).get(k));
 								}
+								if (j > 0) { // reduce score of the stone adjacent to the opposing piece by 1/4th
+									newLine.set(j-1, new PI(newLine.get(j-1).getP(), newLine.get(j-1).getI() / 4));
+								} else if (j == 0) { // reduce score of other side by 1/4
+									int opposite = (i + 4) % 8;
+									for (int k=0; k<threatSpaces.get(threat).get(opposite).size(); k++) {
+										threatSpaces.get(threat).get(opposite).get(k).setI(threatSpaces.get(threat)
+												.get(opposite).get(k).getI() / 4);
+									}
+								}
+								result.get(threat).set(i, newLine);
+								blocked = true;
 							}
 						}
 					}
 				}
 			}
 		}
+		time[2] = System.nanoTime();
 		// this is a new threat 'sequence' containing only one point (goes 8-way)
 		// insert the threat point - expand until board boundary or opposite color is reached. when same color, score 0
 		int[] xFactor = {1, 1}, yFactor = {0, 1};
 		List<List<PI>> threatLines = new ArrayList<>();
-		int blocked = -1;
+		List<Integer> blocked = new ArrayList<>();
 		for (int i=0; i<4; i++) {
 			for (int j=0; j<=1; j++) {
 				List<PI> threatLine = new ArrayList<>();
@@ -140,31 +146,22 @@ public class Jack {
 					if (!clash) {
 						int xt = x + k * xFactor[j];
 						int yt = y + k * yFactor[j];
-						if (0<=xt && xt<19 && 0<=yt && yt<19) {
+						if (0<=xt && xt<19 && 0<=yt && yt<19 && board[xt][yt] != turn) {
 							if (board[xt][yt] == 0) {
 								if (k != 5) { // actual threat space
 									threatLine.add(new PI(new Point(xt, yt), -4 * turn)); // starting value
 								} else { // 0-space
 									threatLine.add(new PI(new Point(xt, yt), 0));
 								}
-							} else if (board[xt][yt] == -1*turn) {
+							} else { // same color
 								threatLine.add(new PI(new Point(xt, yt), 0));
-							} else {
-								if (!threatLine.isEmpty()) {
-									threatLine.get(k - 2).setI(threatLine.get(k - 2).getI() / 4);
-								}
-								if (k == 1) {
-									blocked = 2 * i + j;
-								}
-								clash = true;
 							}
 						} else {
-							// either a differing color or out of bounds
-							if (!threatLine.isEmpty()) {
+							if (!threatLine.isEmpty()) { // out of bounds or differing color
 								threatLine.get(k - 2).setI(threatLine.get(k - 2).getI() / 4);
 							}
 							if (k == 1) {
-								blocked = 2 * i + j;
+								blocked.add(2 * i + j);
 							}
 							clash = true;
 						}
@@ -180,13 +177,18 @@ public class Jack {
 			}
 		}
 		result.put(latestPoint, threatLines);
+		time[3] = System.nanoTime();
 		// adjusting score of threat spaces of opposite side of wherever an opposing piece is directly touching
-		if (blocked >= 0) {
-			for (int i=0; i<result.get(latestPoint).get((blocked + 4) % 8).size(); i++) {
-				result.get(latestPoint).get((blocked + 4) % 8).get(i).setI(result.get(latestPoint)
-						.get((blocked + 4) % 8).get(i).getI() / 4);
+		if (!blocked.isEmpty()) {
+			for (int side : blocked) {
+				int oppositeSide = (side + 4) % 8;
+				for (int i=0; i<result.get(latestPoint).get(oppositeSide).size(); i++) {
+					result.get(latestPoint).get(oppositeSide).get(i)
+							.setI(result.get(latestPoint).get(oppositeSide).get(i).getI() / 4);
+				}
 			}
 		}
+		time[4] = System.nanoTime();
 		return result;
 	}
 
@@ -218,6 +220,7 @@ public class Jack {
 				int black = 0, white = 0;
 				for (PI threatPI : lookup.get(threatSpace)) {
 					if (threatPI.getI() != 0) {
+						// TODO: when in a sequence, multiply. If else, add.
 						if (board[threatPI.getP().x][threatPI.getP().y] == 1) {
 							if (black == 0) {
 								black = threatPI.getI();
@@ -258,6 +261,12 @@ public class Jack {
 		System.out.println("threatSpaces: "+ threatSpaces.toString());
 		System.out.println("lookup: "+lookup.toString());
 		System.out.println("number of threat spaces: "+lookup.keySet().size());
+		System.out.println("(Step) time to alternate scores: "+(time[1]-time[0])/1000000+" ms");
+		System.out.println("(Step) time to modify existing threat space: "+(time[2]-time[1])/1000000+" ms");
+		System.out.println("(Step) time to put in new threat: "+(time[3]-time[2])/1000000+" ms");
+		System.out.println("(Step) time to correct scores that are directly touched: "+(time[4]-time[3])/1000000+" ms");
+		System.out.println("(Hash) time to generate lookup: "+(time[6]-time[5])/1000000+" ms");
+		System.out.println("(Calc) time to calculate scores: "+(time[7]-time[6])/1000000+" ms");
 	}
 
 	public int[][] getScores() {
