@@ -46,6 +46,8 @@ public class ClientCommunicator extends Thread {
 					client.incrementUndo(client.getPieces().size() % 2);
 					client.setShow(client.getPieces().size());
 					client.getContentPane().repaint();
+				} else { // connected
+					client.setConnecting(false);
 				}
 			}
 		} catch (IOException e) {

@@ -18,7 +18,7 @@ public class Server {
 		System.out.println("Awaiting connections...");
 	}
 
-	public void getConnections() throws IOException {
+	public void getConnections() throws IOException, InterruptedException {
 		while (true) {
 			ServerCommunicator comm = new ServerCommunicator(listen.accept(), this);
 			comm.setDaemon(true);
@@ -33,6 +33,10 @@ public class Server {
 				}
 				players.add(temp);
 				turn.add(1);
+				synchronized (Server.this) {
+					wait(500);
+				}
+				broadcast("connected", temp[0]);
 				System.out.println("Total pairs: "+players.size());
 			}
 		}
@@ -45,12 +49,13 @@ public class Server {
 					if (set[0].equals(comm) || set[1].equals(comm)) {
 						set[0] = null;
 						set[1] = null;
+						System.out.println("removed a pair");
 					}
 				}
 			}
 		} else {
 			waitingList.remove(comm);
-			System.out.println("...dropped");
+			System.out.println("removed from waiting list");
 		}
 	}
 
@@ -58,10 +63,10 @@ public class Server {
 		for (ServerCommunicator[] set : players) {
 			if (set[0] != null) {
 				if (set[0].equals(comm) || set[1].equals(comm)) {
+					System.out.println("Broadcast: "+msg+" to: "+set[0].getCommId()+" & "+set[1].getCommId());
 					for (int i=0; i<2; i++) {
 						set[i].send(msg);
 					}
-					System.out.println("Broadcast: "+msg+" to: "+set[0].getCommId()+" & "+set[1].getCommId());
 				}
 			}
 		}

@@ -1,5 +1,7 @@
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
@@ -15,7 +17,7 @@ public class 오목 extends JFrame {
     private static final int pieceSize = 15; // radius of pieces
     private static final int fontSize = 20;
     private static final String filePath = "images/background.png";
-	private static final String serverIP = "localhost";
+	private static final String serverIP = "138.197.80.169";
 	private static final boolean TEST = false;
     private Point click3, created;
     private List<Point> pieces;
@@ -23,14 +25,12 @@ public class 오목 extends JFrame {
     private int mouseX, mouseY, show;
     private int bUndo = 0, wUndo = 0, startState = 1;
     private String font = "Lucina Grande";
-    private boolean ifWon = false, showNum = false, calculating = false, AIMode = false, online = false;
+    private boolean ifWon = false, showNum = false, calculating = false, AIMode = false, online = false, connecting = false;
     private BufferedImage image;
 	private Jack AI;
 	private ClientCommunicator comm;
     // TODO: timer dropdown, specify file format, autosave when game is done
-    // TODO: multiplayer like PS6: first try to connect, then load offline/online mode
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
-	// TODO: make it so that if the board is empty and someone chooses a new mode, gamemode is automatically refreshed
 
     // constructor
     public 오목() {
@@ -69,22 +69,29 @@ public class 오목 extends JFrame {
             public void paintComponent(Graphics g) {
                 super.paintComponent(g);
 				// set background image to scale with window size
-				if (!TEST) {
-					g.drawImage(image,0,0,offset*2+square*18,offset*2+square*18,null);
-					for (int i=0; i<19; i++) { // draw base grid - horizontal, then vertical lines
-						g.setColor(Color.black);
-						g.drawLine(offset, offset+i*square, offset+18*square, offset+i*square);
-						g.drawLine(offset+i*square, offset, offset+i*square, offset+18*square);
-					}
-					for (int x=0; x<3; x++) { // draw guiding dots
-						for (int y=0; y<3; y++) {
-							// dot size is fixed at 3
-							g.fillOval(offset+square*(6*x+3)-3, offset+square*(6*y+3)-3, 6, 6);
+				if (!connecting) {
+					if (!TEST) {
+						g.drawImage(image,0,0,offset*2+square*18,offset*2+square*18,null);
+						for (int i=0; i<19; i++) { // draw base grid - horizontal, then vertical lines
+							g.setColor(Color.black);
+							g.drawLine(offset, offset+i*square, offset+18*square, offset+i*square);
+							g.drawLine(offset+i*square, offset, offset+i*square, offset+18*square);
+						}
+						for (int x=0; x<3; x++) { // draw guiding dots
+							for (int y=0; y<3; y++) {
+								// dot size is fixed at 3
+								g.fillOval(offset+square*(6*x+3)-3, offset+square*(6*y+3)-3, 6, 6);
+							}
 						}
 					}
+					drawPieces(g);
+					drawOverlay(g);
+				} else {
+					FontMetrics metrics = g.getFontMetrics(new Font(font, Font.PLAIN, fontSize * 3));
+					g.setFont(new Font(font, Font.PLAIN, fontSize * 3));
+					g.drawString("연결중...", offset + square * 9 - (metrics.stringWidth("연결중...") / 2),
+							offset + square * 9 - (metrics.getHeight() / 2) + metrics.getAscent());
 				}
-                drawPieces(g);
-                drawOverlay(g);
             }
         };
         canvas.setPreferredSize(new Dimension(offset*2+square*18, offset*2+square*18));
@@ -128,7 +135,6 @@ public class 오목 extends JFrame {
 			System.out.println("Start state changed to: "+startState);
 		});
 		JButton first = new JButton("<<");
-		//first.setPreferredSize(new Dimension(30, 20)); // TODO: how to set button size without changing style?
 		first.addActionListener(e -> {
 			if (pieces.size() > 0) {
 				show = 1;
@@ -136,7 +142,6 @@ public class 오목 extends JFrame {
 			}
 		});
 		JButton prev = new JButton("<");
-		//prev.setPreferredSize(new Dimension(20, 20));
 		prev.addActionListener(e -> {
 			if (show > 1) {
 				show--;
@@ -144,7 +149,6 @@ public class 오목 extends JFrame {
 			}
 		});
 		JButton next = new JButton(">");
-		//next.setPreferredSize(new Dimension(20, 20));
 		next.addActionListener(e -> {
 			if (show < pieces.size()) {
 				show++;
@@ -152,7 +156,6 @@ public class 오목 extends JFrame {
 			}
 		});
 		JButton last = new JButton(">>");
-		//last.setPreferredSize(new Dimension(30, 20));
 		last.addActionListener(e -> {
 			show = pieces.size();
 			repaint();
@@ -167,7 +170,10 @@ public class 오목 extends JFrame {
         gui.add(last);
 		if (TEST) {
 			JButton test = new JButton("test");
-			test.addActionListener(e -> {System.out.println("Show = "+show); AI.test();});
+			test.addActionListener(e -> {
+				System.out.println("Show = "+show);
+				System.out.println("Pieces: "+pieces.toString());
+				AI.test();});
 			gui.add(test);
 		}
         return gui;
@@ -230,8 +236,23 @@ public class 오목 extends JFrame {
 		fontGroup.add(font4RMi);
 		numMenu.add(showMi);
 		numMenu.add(fontMenu);
+		JMenu explain = new JMenu("설명 도움이");
+		explain.addMenuListener(new MenuListener() {
+			public void menuSelected(MenuEvent e) {
+				JOptionPane.showMessageDialog(오목.this,
+						"1. 파일 메뉴를 눌러 게임을 저장하거나 열기\n2. 번호 메뉴를 눌러 수 보이기\n3. 번호 메뉴 안에 글꼴 바꾸기\n" +
+								"4. 메뉴 밑에 오목 모드를 설정하기\n5. 모드를 설정한후, 그 모드로 시작하려면 제시작을 누루기\n6. 온라인 2인용이 아닌 이상은" +
+								"언제든지 수를 돌릴수 있지만, 흑/백 마다 최대 3번만 무를수 있음\n7. 온라인 2인용 일떼는 자기의 색깔만 되돌맀수 있음\n" +
+								"8. 언제든지 화살표들을 클릭헤서 앞으로나 뒤로 수를 보기\n9. << 는 제일 처음으로, < 는 지난 수로, > 는 다음 수로," +
+								"그리고 >> 은 현제/제일 마지막 수로", "사욜설명서", JOptionPane.PLAIN_MESSAGE);
+			}
+			public void menuDeselected(MenuEvent e) {}
+			public void menuCanceled(MenuEvent e) {}
+		});
 		menubar.add(fileMenu);
 		menubar.add(numMenu);
+		menubar.add(Box.createHorizontalGlue());
+		menubar.add(explain);
 		return menubar;
 	}
 
@@ -258,12 +279,12 @@ public class 오목 extends JFrame {
 				if (i<99) {
 					g.setFont(new Font(font, Font.PLAIN, fontSize));
 					g.drawString(Integer.toString(i + 1), offset + square * pieces.get(i).x
-							- (metrics.stringWidth(Integer.toString(i + 1))) / 2,offset+square*pieces.get(i).y
+							- (metrics.stringWidth(Integer.toString(i + 1))) / 2, offset+square*pieces.get(i).y
 							- (metrics.getHeight()) / 2 + metrics.getAscent());
 				} else {
 					g.setFont(new Font(font, Font.PLAIN,fontSize - 4)); // 3-digits get decreased font size
 					g.drawString(Integer.toString(i + 1), offset + square * pieces.get(i).x
-							- (metrics2.stringWidth(Integer.toString(i + 1))) / 2,offset+square*pieces.get(i).y
+							- (metrics2.stringWidth(Integer.toString(i + 1))) / 2, offset+square*pieces.get(i).y
 							- (metrics2.getHeight()) / 2 + metrics2.getAscent());
 				}
 			}
@@ -352,9 +373,11 @@ public class 오목 extends JFrame {
 						if (won()) {
 							ifWon = true;
 							if (pieces.size()%2 == 0) {
-								JOptionPane.showMessageDialog(오목.this, "백 승리!");
+								JOptionPane.showMessageDialog(오목.this, "백 승리!",
+										"게임 종료", JOptionPane.INFORMATION_MESSAGE);
 							} else {
-								JOptionPane.showMessageDialog(오목.this, "흑 승리!");
+								JOptionPane.showMessageDialog(오목.this, "흑 승리!",
+										"게임 종료", JOptionPane.INFORMATION_MESSAGE);
 							}
 							repaint();
 						} else {
@@ -378,7 +401,7 @@ public class 오목 extends JFrame {
                     click3 = pt;
                     pieces.remove(click3);
                     repaint();
-					JOptionPane.showMessageDialog(오목.this, "삼삼!");
+					JOptionPane.showMessageDialog(오목.this, "삼삼!", "에러", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }
@@ -403,7 +426,7 @@ public class 오목 extends JFrame {
                 set34 = open3(pieces);
                 show = pieces.size();
             } else {
-				JOptionPane.showMessageDialog(오목.this, "수 되돌리기 불가능!");
+				JOptionPane.showMessageDialog(오목.this, "수 되돌리기 불가능!", "에러", JOptionPane.ERROR_MESSAGE);
             }
             repaint();
         }
@@ -414,7 +437,7 @@ public class 오목 extends JFrame {
 		set34 = new ArrayList<>();
         bUndo = wUndo = 0;
         show = 0;
-        online = ifWon = calculating = false;
+        connecting = online = ifWon = calculating = false;
         created = null;
         click3 = null;
         AI = new Jack();
@@ -432,6 +455,7 @@ public class 오목 extends JFrame {
 			comm.setDaemon(true);
 			comm.start();
 			online = true;
+			setConnecting(true);
 		}
         repaint();
     }
@@ -506,9 +530,6 @@ public class 오목 extends JFrame {
     private boolean legalMove(Point p) {
 		// the rules go out the window when fighting AI.
 		// TODO: Turn it back on when I figure out how to make the AI check if it is making legal moves
-		if (pieces.size() < 9 || AIMode) {
-			return true;
-		}
 		for (Set<Point> set : set34) {
 			if (set.contains(p) && set.size() == 3) {
 				for (Point neighbor : set) {
@@ -645,11 +666,16 @@ public class 오목 extends JFrame {
 		if (won()) {
 			ifWon = true;
 			if (pieces.size()%2 == 0) {
-				JOptionPane.showMessageDialog(오목.this, "백 승리!");
+				JOptionPane.showMessageDialog(오목.this, "백 승리!", "게임 종료", JOptionPane.INFORMATION_MESSAGE);
 			} else {
-				JOptionPane.showMessageDialog(오목.this, "흑 승리!");
+				JOptionPane.showMessageDialog(오목.this, "흑 승리!", "게임 종료", JOptionPane.INFORMATION_MESSAGE);
 			}
 		}
+	}
+
+	public void setConnecting(boolean b) {
+    	connecting = b;
+    	repaint();
 	}
 
     public static void main(String[] cheese) {
