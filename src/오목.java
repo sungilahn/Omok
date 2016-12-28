@@ -14,17 +14,19 @@ public class 오목 extends JFrame {
     private static final int square = 40; // size of square
     private static final int pieceSize = 15; // radius of pieces
     private static final int fontSize = 20;
-    private static final String filePath = "images/background.jpg";
-	private static final boolean TEST = true;
+    private static final String filePath = "images/background.png";
+	private static final String serverIP = "localhost";
+	private static final boolean TEST = false;
     private Point click3, created;
     private List<Point> pieces;
     private List<Set<Point>> set34;
     private int mouseX, mouseY, show;
     private int bUndo = 0, wUndo = 0, startState = 1;
     private String font = "Lucina Grande";
-    private boolean ifWon = false, showNum = false, calculating = false, AIMode = false;
+    private boolean ifWon = false, showNum = false, calculating = false, AIMode = false, online = false;
     private BufferedImage image;
 	private Jack AI;
+	private ClientCommunicator comm;
     // TODO: timer dropdown, specify file format, autosave when game is done
     // TODO: multiplayer like PS6: first try to connect, then load offline/online mode
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
@@ -111,15 +113,17 @@ public class 오목 extends JFrame {
         	clear = new JButton("restart");
 		}
         clear.addActionListener(e -> clear());
-		String[] states = {"2인용", "컴퓨터 - 백", "컴퓨터 - 흑"};
+		String[] states = {"로컬 2인용", "온라인 2인용", "컴퓨터 - 백", "컴퓨터 - 흑"};
 		JComboBox<String> stateB = new JComboBox<>(states);
 		stateB.addActionListener(e -> {
-			if (((JComboBox<String>)e.getSource()).getSelectedItem() == "2인용") {
+			if (((JComboBox<String>)e.getSource()).getSelectedItem() == "로컬 2인용") {
 				startState = 1;
 			} else if (((JComboBox<String>)e.getSource()).getSelectedItem() == "컴퓨터 - 백") {
 				startState = 2;
-			} else {
+			} else if (((JComboBox<String>)e.getSource()).getSelectedItem() == "컴퓨터 - 흑"){
 				startState = 3;
+			} else {
+				startState = 4;
 			}
 			System.out.println("Start state changed to: "+startState);
 		});
@@ -173,12 +177,14 @@ public class 오목 extends JFrame {
 		JMenuBar menubar = new JMenuBar();
 		JMenu fileMenu = new JMenu("파일");
 		JMenuItem openMi = new JMenuItem("열기");
-		openMi.addActionListener((ActionEvent e) -> load());
+		openMi.addActionListener((ActionEvent e) -> {
+			if (startState != 4) load();
+		});
 		JMenuItem saveMi = new JMenuItem("저장");
 		saveMi.addActionListener((ActionEvent e) -> save());
 		fileMenu.add(openMi);
 		fileMenu.add(saveMi);
-		JMenu numMenu = new JMenu("수");
+		JMenu numMenu = new JMenu("번호");
 		JCheckBoxMenuItem showMi = new JCheckBoxMenuItem("보이기");
 		showMi.setMnemonic(KeyEvent.VK_S);
 		showMi.addItemListener((ItemEvent e) -> {showNum = !showNum; repaint();});
@@ -330,35 +336,43 @@ public class 오목 extends JFrame {
             int py = Math.round((p.y-offset+square/2)/square);
             Point pt = new Point(px, py);
             if (!pieces.contains(pt)) {
-                pieces.add(pt);
-                set34 = open3(pieces);
+            	List<Point> piecesCopy = new ArrayList<>(pieces);
+            	piecesCopy.add(pt);
+                set34 = open3(piecesCopy);
                 if (legalMove(pt)) {
-                	show = pieces.size();
-                    created = pt;
                     if (TEST || AIMode) AI.addPoint(px, py);
-                    if (won()) {
-						ifWon = true;
-                        if (pieces.size()%2 == 0) {
-							JOptionPane.showMessageDialog(오목.this, "백 승리!");
-                        } else {
-							JOptionPane.showMessageDialog(오목.this, "흑 승리!");
-                        }
-						repaint();
-                    } else {
-						repaint();
-						if (AIMode) {
-							calculating = true;
-							double startTime = System.nanoTime();
-							Point tmp = AI.winningMove();
-							pieces.add(tmp);
-							AI.addPoint(tmp.x, tmp.y);
-							double endTime = System.nanoTime();
-							double duration = (endTime - startTime)/1000000;
-							System.out.println("It took "+duration+" ms to calculate the best move");
-							calculating = false;
-							show = pieces.size();
+                    if (online) {
+                    	comm.send("add "+px+" "+py);
+					} else {
+                    	pieces.add(pt);
+					}
+					show = pieces.size();
+					created = pt;
+					if (!online) {
+						if (won()) {
+							ifWon = true;
+							if (pieces.size()%2 == 0) {
+								JOptionPane.showMessageDialog(오목.this, "백 승리!");
+							} else {
+								JOptionPane.showMessageDialog(오목.this, "흑 승리!");
+							}
+							repaint();
+						} else {
+							repaint();
+							if (AIMode) {
+								calculating = true;
+								double startTime = System.nanoTime();
+								Point tmp = AI.winningMove();
+								pieces.add(tmp);
+								AI.addPoint(tmp.x, tmp.y);
+								double endTime = System.nanoTime();
+								double duration = (endTime - startTime)/1000000;
+								System.out.println("It took "+duration+" ms to calculate the best move");
+								calculating = false;
+								show = pieces.size();
+								repaint();
+							}
 						}
-						repaint();
 					}
                 } else {
                     click3 = pt;
@@ -373,14 +387,19 @@ public class 오목 extends JFrame {
     private void undo() {
     	// TODO: fix Jack's interaction with undo, then restore the undo by removing if statement with AIMode
         if (!TEST && !AIMode && !ifWon) {
-            if (pieces.size()%2 == 1 && bUndo<3) {
-                pieces.remove(pieces.size()-1);
-                bUndo++;
-                set34 = open3(pieces);
-                show = pieces.size();
-            } else if (pieces.size()>0 && wUndo<3) {
-                pieces.remove(pieces.size()-1);
-                wUndo++;
+            if ((pieces.size()%2 == 1 && bUndo<3) || (pieces.size()>0 && wUndo<3)) {
+                if (!online) {
+                	pieces.remove(pieces.size()-1);
+					if (pieces.size()%2 == 1) {
+						wUndo++;
+						System.out.println("wUndo: "+wUndo);
+					} else {
+						bUndo++;
+						System.out.println("bUndo: "+bUndo);
+					}
+				} else {
+                	comm.send("undo");
+				}
                 set34 = open3(pieces);
                 show = pieces.size();
             } else {
@@ -395,7 +414,7 @@ public class 오목 extends JFrame {
 		set34 = new ArrayList<>();
         bUndo = wUndo = 0;
         show = 0;
-        ifWon = calculating = false;
+        online = ifWon = calculating = false;
         created = null;
         click3 = null;
         AI = new Jack();
@@ -403,11 +422,16 @@ public class 오목 extends JFrame {
 			AIMode = false;
 		} else if (startState == 2) { // COM WHITE
 			AIMode = true;
-		} else {
+		} else if (startState == 3) { // COM BLACK
 			AIMode = true;
 			pieces.add(new Point(9,9));
 			show++;
 			AI.addPoint(9,9);
+		} else { // Online multi-player
+			comm = new ClientCommunicator(serverIP, this);
+			comm.setDaemon(true);
+			comm.start();
+			online = true;
 		}
         repaint();
     }
@@ -597,6 +621,36 @@ public class 오목 extends JFrame {
         }
         return result;
     }
+
+    public List<Point> getPieces () {
+    	return pieces;
+	}
+
+	public void setShow(int show) {
+    	this.show = show;
+	}
+
+	public void incrementUndo(int i) {
+    	if (i == 1) {
+    		wUndo++;
+			System.out.println("wUndo: "+wUndo);
+		} else {
+    		bUndo++;
+			System.out.println("bUndo: "+bUndo);
+		}
+	}
+
+	public void checkWin() {
+    	set34 = open3(pieces);
+		if (won()) {
+			ifWon = true;
+			if (pieces.size()%2 == 0) {
+				JOptionPane.showMessageDialog(오목.this, "백 승리!");
+			} else {
+				JOptionPane.showMessageDialog(오목.this, "흑 승리!");
+			}
+		}
+	}
 
     public static void main(String[] cheese) {
         new 오목();
