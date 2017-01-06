@@ -3,7 +3,7 @@ import java.util.*;
 import java.util.List;
 
 public class Jack {
-	private int depth = 2*(2)+1, turn = 1; // -1 for white, 1 for black. Depth should be odd
+	private int depth = 5, turn = 1; // -1 for white, 1 for black. Depth should be odd
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<PI>> lookup; // threat space (incl. 0) -> threats -> score
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score

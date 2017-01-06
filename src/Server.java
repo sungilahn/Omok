@@ -2,17 +2,20 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Stack;
 
 public class Server {
 	private ServerSocket listen; // for accepting connections
 	private List<ServerCommunicator> waitingList;
 	private List<ServerCommunicator[]> players;
 	private List<Integer> turn;
+	// TODO: automatic running of jar upon startup, cutting connections upon removing communicator
+	// TODO: more elegant way of handling cut-off connections and redeploying to server, and logging in via ssh
+	// TODO: bug where one client can double click restart and get connected to himself
+	// TODO: bug where both can press at the same time and both would register at the same point
 
 	public Server(ServerSocket listen) {
 		this.listen = listen;
-		waitingList = new Stack<>();
+		waitingList = new ArrayList<>();
 		players = new ArrayList<>();
 		turn = new ArrayList<>();
 		System.out.println("Awaiting connections...");
@@ -33,7 +36,7 @@ public class Server {
 				}
 				players.add(temp);
 				turn.add(1);
-				synchronized (Server.this) {
+				synchronized (Server.this) { // TODO: find a better way
 					wait(500);
 				}
 				broadcast("connected", temp[0]);

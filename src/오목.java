@@ -18,7 +18,7 @@ public class 오목 extends JFrame {
     private static final int fontSize = 20;
     private static final String filePath = "images/background.png";
 	private static final String serverIP = "138.197.80.169";
-	private static final boolean TEST = false;
+	private static final boolean TEST = true;
     private Point click3, created;
     private List<Point> pieces;
     private List<Set<Point>> set34;
@@ -180,7 +180,7 @@ public class 오목 extends JFrame {
     }
 
     private JMenuBar setUpMenu() {
-		JMenuBar menubar = new JMenuBar();
+		JMenuBar menuBar = new JMenuBar();
 		JMenu fileMenu = new JMenu("파일");
 		JMenuItem openMi = new JMenuItem("열기");
 		openMi.addActionListener((ActionEvent e) -> {
@@ -249,11 +249,11 @@ public class 오목 extends JFrame {
 			public void menuDeselected(MenuEvent e) {}
 			public void menuCanceled(MenuEvent e) {}
 		});
-		menubar.add(fileMenu);
-		menubar.add(numMenu);
-		menubar.add(Box.createHorizontalGlue());
-		menubar.add(explain);
-		return menubar;
+		menuBar.add(fileMenu);
+		menuBar.add(numMenu);
+		menuBar.add(Box.createHorizontalGlue());
+		menuBar.add(explain);
+		return menuBar;
 	}
 
     private void drawPieces(Graphics g) {
