@@ -132,6 +132,7 @@ public class 오목 extends JFrame {
 			} else {
 				startState = 4;
 			}
+			if (show == 0) clear();
 			System.out.println("Start state changed to: "+startState);
 		});
 		JButton first = new JButton("<<");
