@@ -4,7 +4,7 @@ import java.util.List;
 
 public class Jack {
 	private static final int SUFFICIENTLY_LARGE_NUMBER = 100_000_000;
-	private static final double DEFENSE_WEIGHT = 0.9;
+	private static final double DEFENSE_WEIGHT = 0.85;
 	private static final double THRESHOLD = 2/3;
 	private int depth = 5, turn = 1; // -1 for white, 1 for black. Depth should be odd
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
@@ -249,7 +249,7 @@ public class Jack {
 									if (inLine(sequence.get(0), threatSpace, latestPoint)) {
 										found = true;
 										if (board[sequence.get(0).x][sequence.get(0).y] != turn &&
-												isClear(sequence.get(sequence.size() - 1), latestPoint)) {
+												isClear(sequence.get(sequence.size() - 1), latestPoint, turn)) {
 											// same color
 											if (sequence.size() == 1) {
 												if (closer(threatSpace, sequence.get(0), x, y)) {
@@ -343,26 +343,26 @@ public class Jack {
 	}
 
 	// checks if there are no whites between the end point and the new point
-	private boolean isClear(Point end, Point latestPoint) {
+	private boolean isClear(Point end, Point latestPoint, int turn) {
 		if (end.x == latestPoint.x) {
 			// vertical
 			for (int i = 1; i < Math.abs(end.y - latestPoint.y); i++) {
-				if (board[end.x][Math.min(end.y, latestPoint.y) + i] != 0) return false;
+				if (board[end.x][Math.min(end.y, latestPoint.y) + i] == turn) return false;
 			}
 		} else if (end.y == latestPoint.y) {
 			// horizontal
 			for (int i = 1; i < Math.abs(end.x - latestPoint.x); i++) {
-				if (board[Math.min(end.x, latestPoint.x) + i][end.y] != 0) return false;
+				if (board[Math.min(end.x, latestPoint.x) + i][end.y] == turn) return false;
 			}
 		} else if ((end.y - latestPoint.y)/(end.x - latestPoint.x) == 1){
 			// right up diagonal (slope = 1)
 			for (int i = 1; i < Math.abs(end.x - latestPoint.x); i++) {
-				if (board[Math.min(end.x, latestPoint.x) + i][Math.min(end.y, latestPoint.y) + i] != 0) return false;
+				if (board[Math.min(end.x, latestPoint.x) + i][Math.min(end.y, latestPoint.y) + i] == turn) return false;
 			}
 		} else {
 			// right down diagonal (slope = -1)
 			for (int i = 1; i < Math.abs(end.x - latestPoint.x); i++) {
-				if (board[Math.min(end.x, latestPoint.x) + i][Math.max(end.y, latestPoint.y) - i] != 0) return false;
+				if (board[Math.min(end.x, latestPoint.x) + i][Math.max(end.y, latestPoint.y) - i] == turn) return false;
 			}
 		}
 		return true;
