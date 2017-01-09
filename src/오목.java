@@ -506,7 +506,7 @@ public class 오목 extends JFrame {
                 for (int i=1; i<frags.length-1; i=i+3) {
                     pieces.add(new Point(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1])));
                     // save some computational resources by NOT calculating threat spaces and shit if we don't have to
-                    if (AIMode) AI.addPoint(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1]));
+                    if (AIMode || TEST) AI.addPoint(Integer.parseInt(frags[i]), Integer.parseInt(frags[i+1]));
                 }
                 show = pieces.size();
                 set34 = open3(pieces); // for winning check

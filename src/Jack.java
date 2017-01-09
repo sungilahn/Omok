@@ -12,6 +12,7 @@ public class Jack {
 	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
 	private double[] time;
 	// TODO: if I can figure out how to deep copy objects, then implement undo
+	// link: http://stackoverflow.com/questions/2156120/java-recommended-solution-for-deep-cloning-copying-an-instance
 	// TODO: add alpha-beta pruning in minimax tree for winningMove
 
 	// custom data type
@@ -229,6 +230,7 @@ public class Jack {
 	private Map<Point, List<List<Point>>> hash(Map<Point, List<List<Point>>> lookup, int x, int y) {
 		Map<Point, List<List<Point>>> result = new HashMap<>(lookup);
 		Point latestPoint = new Point(x, y);
+		List<List<Point>> visited = new ArrayList<>();
 		if (lookup.containsKey(latestPoint)) result.remove(latestPoint);
 		int[] xFactor = {1, 1}, yFactor = {0, 1};
 		for (int i=0; i<4; i++) {
@@ -242,40 +244,57 @@ public class Jack {
 						Point threatSpace = new Point(xt, yt);
 						boolean exists = false, found = false;
 						if (lookup.containsKey(threatSpace)) {
-							for (List<Point> sequence : result.get(threatSpace)) {
-								if (inRange(latestPoint, sequence.get(0), 4) ||
-										inRange(latestPoint, sequence.get(sequence.size() - 1), 4)) {
+							for (int m = 0; m < lookup.get(threatSpace).size(); m++) {
+								List<Point> sequence = result.get(threatSpace).get(m);
+								if (!visited.contains(sequence) && (inRange(latestPoint, sequence.get(0)) ||
+										inRange(latestPoint, sequence.get(sequence.size() - 1)))) {
 									exists = true;
 									if (inLine(sequence.get(0), threatSpace, latestPoint)) {
 										found = true;
-										if (board[sequence.get(0).x][sequence.get(0).y] != turn &&
-												isClear(sequence.get(sequence.size() - 1), latestPoint, turn)) {
+										if (board[sequence.get(0).x][sequence.get(0).y] != turn) {
 											// same color
-											if (sequence.size() == 1) {
-												if (closer(threatSpace, sequence.get(0), x, y)) {
-													sequence.add(0, latestPoint);
-												} else {
-													sequence.add(latestPoint);
-												}
-											} else {
-												int position = position(sequence, latestPoint);
-												if (position == 1) {
-													// latestPoint --- start --- end
-													sequence.add(0, latestPoint);
-												} else if (position == 2) {
-													// start --- latestPoint --- end
-													int n = 1;
-													// putting it in order so that I don't have to sort
-													while (!closer(threatSpace, sequence.get(n), x, y)) {
-														n++;
+											if (isClear(sequence.get(sequence.size() - 1), latestPoint, turn)) {
+												if (sequence.size() == 1) {
+													if (closer(threatSpace, sequence.get(0), x, y)) {
+														sequence.add(0, latestPoint);
+													} else {
+														sequence.add(latestPoint);
 													}
-													sequence.add(n, latestPoint);
 												} else {
-													// start --- end --- latestPoint
-													sequence.add(latestPoint);
+													boolean out = false;
+													for (int n = 1; n < sequence.size(); n++) {
+														if (!inRange(latestPoint, sequence.get(n))) {
+															out = true;
+														}
+													}
+													if (!out) {
+														int position = position(sequence, latestPoint);
+														if (position == 1) {
+															// latestPoint --- start --- end
+															sequence.add(0, latestPoint);
+														} else if (position == 2) {
+															// start --- latestPoint --- end
+															int n = 1;
+															// putting it in order so that I don't have to sort
+															while (!closer(threatSpace, sequence.get(n), x, y)) {
+																n++;
+															}
+															sequence.add(n, latestPoint);
+														} else {
+															// start --- end --- latestPoint
+															sequence.add(latestPoint);
+														}
+													} else {
+														List<Point> temp = splitOff(latestPoint, sequence);
+														result.get(threatSpace).add(temp);
+														// need to do this - otherwise this sequence is checked again
+														// for reasons unknown - do not touch!!
+														visited.add(temp);
+													}
 												}
 											}
 										} else {
+											// TODO: fix removing algo
 											// diff color
 											while (sequence.size() != 0 &&
 													closer(threatSpace, sequence.get(sequence.size() - 1), x, y)) {
@@ -325,8 +344,8 @@ public class Jack {
 	}
 
 	// returns true if a point is within a certain boundary
-	private boolean inRange(Point o, Point toCheck, int n) {
-		return toCheck.x >= o.x - n && toCheck.x <= o.x + n && toCheck.y >= o.y - n && toCheck.y <= o.y + n;
+	private boolean inRange(Point o, Point toCheck) {
+		return toCheck.x >= o.x - 4 && toCheck.x <= o.x + 4 && toCheck.y >= o.y - 4 && toCheck.y <= o.y + 4;
 	}
 
 	// returns relative position of latest point in relation to existing sequence
@@ -342,7 +361,7 @@ public class Jack {
 		}
 	}
 
-	// checks if there are no whites between the end point and the new point
+	// checks if there are no opposing colors between the end point and the new point
 	private boolean isClear(Point end, Point latestPoint, int turn) {
 		if (end.x == latestPoint.x) {
 			// vertical
@@ -368,6 +387,25 @@ public class Jack {
 		return true;
 	}
 
+	// given a sequence in which at least one element is out of range and a point, splits off a new sequence
+	private List<Point> splitOff(Point latestPoint, List<Point> sequence) {
+		List<Point> result = new ArrayList<>();
+		result.add(latestPoint);
+		Map<Integer, Point> distance = new HashMap<>();
+		for (Point p : sequence) {
+			distance.put((p.x - latestPoint.x) * (p.x - latestPoint.x) +
+					(p.y - latestPoint.y) * (p.y - latestPoint.y), p);
+		}
+		for (int i=1; i<5; i++) {
+			for (Integer d : distance.keySet()) {
+				if (d == i * i || d == i * i * 2) {
+					result.add(distance.get(d));
+				}
+			}
+		}
+		return result;
+	}
+
 	private int[][] calculateScores(Map<Point, List<List<Point>>> lookup, Map<Point, List<List<PI>>> threatSpaces) {
 		int[][] result = new int[19][19];
 		for (Point threatSpace : lookup.keySet()) {
@@ -391,7 +429,14 @@ public class Jack {
 						blackCount++;
 					} else {
 						if (whiteCount == 0) {
-							seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
+							// TODO: fix bug and remove try-catch
+							try {
+								seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
+							} catch (IndexOutOfBoundsException e) {
+								System.out.println("Error: "+threat.toString()+", temp: "+temp[0]+" "+temp[1]);
+								System.out.println("ThreatSequence: "+threatSequence.toString());
+								System.out.println("ThreatSpace: "+threatSpace.toString());
+							}
 						} else {
 							if (turn == 1) {
 								seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() * -1);
@@ -444,6 +489,7 @@ public class Jack {
 		System.out.println("(Step) time to correct scores that are directly touched: "+(time[4]-time[3])/1000000+" ms");
 		System.out.println("(Hash) time to generate lookup: "+(time[6]-time[5])/1000000+" ms");
 		System.out.println("(Calc) time to calculate scores: "+(time[7]-time[6])/1000000+" ms");
+		System.out.println("Total time to add a point: "+(time[7]-time[0])/1000000+" ms");
 	}
 
 	public int[][] getScores() {
@@ -454,5 +500,11 @@ public class Jack {
 	public Point winningMove() {
 		Point result = new Point(10,10);
 		return result;
+	}
+
+	// the minimax depth-first search with alphabeta pruning
+	private int alphaBeta(int[][] board, Map<Point, List<List<PI>>> threatSpaces,
+						  Map<Point, List<List<Point>>> lookup, int[][] scores, int depth) {
+		return 0;
 	}
 }
