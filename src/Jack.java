@@ -8,12 +8,11 @@ public class Jack {
 	private static final double THRESHOLD = 2/3;
 	private int depth = 5, turn = 1; // -1 for white, 1 for black. Depth should be odd
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
-	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score
+	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
 	private double[] time;
-	// TODO: threat depth search using threat scores, detecting any dangerous patterns
+	// TODO: if I can figure out how to deep copy objects, then implement undo
 	// TODO: add alpha-beta pruning in minimax tree for winningMove
-	// NOTE: Jack maximizes points for whoever has the current turn
 
 	// custom data type
 	public class PI {
@@ -44,8 +43,8 @@ public class Jack {
 	// constructor
 	public Jack() {
 		board = new int[19][19];
-		lookup = new HashMap<>();
 		threatSpaces = new HashMap<>();
+		lookup = new HashMap<>();
 		scores = new int[19][19];
 		time = new double[8];
 	}
