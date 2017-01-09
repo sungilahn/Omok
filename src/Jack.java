@@ -294,11 +294,8 @@ public class Jack {
 												}
 											}
 										} else {
-											// TODO: fix removing algo
-											// diff color
-											while (sequence.size() != 0 &&
-													closer(threatSpace, sequence.get(sequence.size() - 1), x, y)) {
-												sequence.remove(sequence.size() - 1);
+											for (Point p : oppositeSide(latestPoint, threatSpace, sequence)) {
+												sequence.remove(p);
 											}
 											if (sequence.size() == 0) sequence.add(latestPoint);
 										}
@@ -401,6 +398,33 @@ public class Jack {
 				if (d == i * i || d == i * i * 2) {
 					result.add(distance.get(d));
 				}
+			}
+		}
+		return result;
+	}
+
+	// lists all points in the sequence that are on the opposite side of threat space, with latest point as axis
+	// also, can assume that the sequence and point are in line
+	private List<Point> oppositeSide(Point latestPoint, Point threatSpace, List<Point> sequence) {
+		List<Point> result = new ArrayList<>();
+		if (latestPoint.x == threatSpace.x) {
+			// vertical
+			if (latestPoint.y > threatSpace.y) {
+				for (Point p : sequence) {
+					if (p.y > latestPoint.y) result.add(p);
+				}
+			} else {
+				for (Point p : sequence) {
+					if (p.y < latestPoint.y) result.add(p);
+				}
+			}
+		} else if (latestPoint.x > threatSpace.x) {
+			for (Point p : sequence) {
+				if (p.x > latestPoint.x) result.add(p);
+			}
+		} else {
+			for (Point p : sequence) {
+				if (p.x < latestPoint.x) result.add(p);
 			}
 		}
 		return result;

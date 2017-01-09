@@ -2,7 +2,11 @@
   <dictionary name="SungilAhn">
     <words>
       <w>alphabeta</w>
+      <w>autosave</w>
+      <w>dropdown</w>
+      <w>grande</w>
       <w>minimax</w>
+      <w>neue</w>
     </words>
   </dictionary>
 </component>

@@ -36,18 +36,22 @@ public class ClientCommunicator extends Thread {
 		try {
 			while ((line = in.readLine()) != null) {
 				String[] part = line.split(" ");
-				if (part[0].equals("add")) {
-					client.getPieces().add(new Point(Integer.parseInt(part[1]), Integer.parseInt(part[2])));
-					client.setShow(client.getPieces().size());
-					client.checkWin();
-					client.getContentPane().repaint();
-				} else if (part[0].equals("undo")) {
-					client.getPieces().remove(client.getPieces().size() - 1);
-					client.incrementUndo(client.getPieces().size() % 2);
-					client.setShow(client.getPieces().size());
-					client.getContentPane().repaint();
-				} else { // connected
-					client.setConnecting(false);
+				switch (part[0]) {
+					case "add":
+						client.getPieces().add(new Point(Integer.parseInt(part[1]), Integer.parseInt(part[2])));
+						client.setShow(client.getPieces().size());
+						client.checkWin();
+						client.getContentPane().repaint();
+						break;
+					case "undo":
+						client.getPieces().remove(client.getPieces().size() - 1);
+						client.incrementUndo(client.getPieces().size() % 2);
+						client.setShow(client.getPieces().size());
+						client.getContentPane().repaint();
+						break;
+					default:  // connected
+						client.setConnecting(false);
+						break;
 				}
 			}
 		} catch (IOException e) {
