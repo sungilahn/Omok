@@ -25,7 +25,8 @@ public class 오목 extends JFrame {
     private int mouseX, mouseY, show;
     private int bUndo = 0, wUndo = 0, startState = 1;
     private String font = "Lucina Grande";
-    private boolean ifWon = false, showNum = false, calculating = false, AIMode = false, online = false, connecting = false;
+    private boolean ifWon = false, showNum = false, calculating = false, AIMode = false,
+			online = false, connecting = false;
     private BufferedImage image;
 	private Jack AI;
 	private ClientCommunicator comm;
@@ -242,10 +243,11 @@ public class 오목 extends JFrame {
 			public void menuSelected(MenuEvent e) {
 				JOptionPane.showMessageDialog(오목.this,
 						"1. 파일 메뉴를 눌러 게임을 저장하거나 열기\n2. 번호 메뉴를 눌러 수 보이기\n3. 번호 메뉴 안에 글꼴 바꾸기\n" +
-								"4. 메뉴 밑에 오목 모드를 설정하기\n5. 모드를 설정한후, 그 모드로 시작하려면 제시작을 누루기\n6. 온라인 2인용이 아닌 이상은" +
-								"언제든지 수를 돌릴수 있지만, 흑/백 마다 최대 3번만 무를수 있음\n7. 온라인 2인용 일떼는 자기의 색깔만 되돌맀수 있음\n" +
-								"8. 언제든지 화살표들을 클릭헤서 앞으로나 뒤로 수를 보기\n9. << 는 제일 처음으로, < 는 지난 수로, > 는 다음 수로," +
-								"그리고 >> 은 현제/제일 마지막 수로", "사욜설명서", JOptionPane.PLAIN_MESSAGE);
+								"4. 메뉴 밑에 오목 모드를 설정하기\n5. 모드를 설정한후, 그 모드로 시작하려면 제시작을 누루기\n6. 온라인 " +
+								"2인용이 아닌 이상은 언제든지 수를 돌릴수 있지만, 흑/백 마다 최대 3번만 무를수 있음\n7. 온라인 2인용 일떼는 " +
+								"자기의 색깔만 되돌맀수 있음\n8. 언제든지 화살표들을 클릭헤서 앞으로나 뒤로 수를 보기\n9. << 는 제일 처음으로, " +
+								"< 는 지난 수로, > 는 다음 수로, 그리고 >> 은 현제/제일 마지막 수로\n\n 저자 - 안성일", "사욜설명서",
+						JOptionPane.PLAIN_MESSAGE);
 			}
 			public void menuDeselected(MenuEvent e) {}
 			public void menuCanceled(MenuEvent e) {}
