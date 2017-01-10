@@ -247,7 +247,6 @@ public class Jack {
 							boolean exists = false, found = false, toAdd = false;
 							if (lookup.containsKey(threatSpace)) {
 								// modify existing sequence that has this threat space
-								// TODO: fix control flow
 								for (int m = 0; m < lookup.get(threatSpace).size(); m++) {
 									List<Point> sequence = result.get(threatSpace).get(m);
 									// check if the sequence is valid
@@ -469,13 +468,7 @@ public class Jack {
 						blackCount++;
 					} else {
 						if (whiteCount == 0) {
-							try {
-								seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
-							} catch (IndexOutOfBoundsException e) {
-								System.out.println("Error: "+threat.toString()+", temp: "+temp[0]+" "+temp[1]);
-								System.out.println("ThreatSequence: "+threatSequence.toString());
-								System.out.println("ThreatSpace: "+threatSpace.toString());
-							}
+							seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
 						} else {
 							if (turn == 1) {
 								seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() * -1);
