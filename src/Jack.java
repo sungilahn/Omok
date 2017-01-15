@@ -697,7 +697,15 @@ public class Jack {
 		for (int i=0; i<19; i++) {
 			for (int j=0; j<19; j++) {
 				if (scores[i][j] != 0) {
-					pq.push(scores[i][j], new Point(i, j));
+					if (Math.abs(scores[i][j]) < WIN_NUMBER) {
+						pq.push(scores[i][j], new Point(i, j));
+					} else {
+						if (scores[i][j] > 0) {
+							return SUFFICIENTLY_LARGE_NUMBER;
+						} else {
+							return -SUFFICIENTLY_LARGE_NUMBER;
+						}
+					}
 				}
 			}
 		}
