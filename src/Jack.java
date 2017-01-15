@@ -4,24 +4,26 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 
+// WARNING: currently very unoptimized in performance, pruning, and the node choices!
 public class Jack {
 	private static final int SUFFICIENTLY_LARGE_NUMBER = 100_000_000;
+	private static final int WIN_NUMBER = 256;
 	private static final int DEPTH_LIMIT = 5;
 	private static final int BRANCH_LIMIT = 5;
-	private static final double DEFENSE_WEIGHT = 0.9;
+	private static final double DEFENSE_WEIGHT = 0.92;
 	private static final double THRESHOLD = 2/3;
 	private double[] time;
-	private int turn = 1, count, nodes; // turn: -1 for white, 1 for black. count is used for the first move only
+	private int turn = 1, nodes; // turn: -1 for white, 1 for black. count is used for the first move only
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score
 	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
-	// TODO: smarten up AI - it ignores to defend right next to any threats
 	// TODO: implement undo using deep copy
-	// link: http://stackoverflow.com/questions/2156120/java-recommended-solution-for-deep-cloning-copying-an-instance
+	// TODO: make AI non-retarded - it even manages to ignore straight rows of 4 (when score is 100000000)
 	// TODO: in the beginning, only add 2 branches of 2, not 4
 	// TODO: obvious optimization - when any of the scores are above a certain limit, should check for win and return early
 	// TODO: optimization - when there's threes (whether it's split or not) and there is nothing blocking it,
 	// should prioritize only the directly neighboring spaces
+	// TODO: optimization - should make threat detection much less lengthy (don't go over entire lookup again)
 	// TODO: optimization - just ignore scores & spaces that are insignificant, in both alternating and tallying up
 
 	// custom data type
@@ -57,12 +59,10 @@ public class Jack {
 		lookup = new HashMap<>();
 		scores = new int[19][19];
 		time = new double[2];
-		count = 0;
 	}
 
 	// officially adds point, modifying the actual threatSpaces and lookup
 	public void addPoint(int x, int y) {
-		count++;
 		board[x][y] = turn;
 		turn = 0 - turn;
 		// add point to lookup and threatSpaces
@@ -285,22 +285,8 @@ public class Jack {
 														}
 													}
 													if (!out) {
-														int position = position(sequence, latestPoint);
-														if (position == 1) {
-															// latestPoint --- start --- end
-															sequence.add(0, latestPoint);
-														} else if (position == 2) {
-															// start --- latestPoint --- end
-															int n = 1;
-															// putting it in order so that I don't have to sort
-															while (!closer(threatSpace, sequence.get(n), x, y)) {
-																n++;
-															}
-															sequence.add(n, latestPoint);
-														} else {
-															// start --- end --- latestPoint
-															sequence.add(latestPoint);
-														}
+														sequence.add(position(sequence, latestPoint, length(sequence)),
+																latestPoint);
 													} else {
 														List<Point> temp = splitOff(latestPoint, sequence);
 														result.get(threatSpace).add(temp);
@@ -372,15 +358,37 @@ public class Jack {
 	}
 
 	// returns relative position of latest point in relation to existing sequence
-	private int position(List<Point> sequence, Point latestPoint) {
+	private int position(List<Point> sequence, Point latestPoint, int length) {
+		// should now directly return the number which should be put in the sequence
 		Point start = sequence.get(0), end = sequence.get(sequence.size() - 1);
-		if (latestPoint.x > Math.min(start.x, end.x) && latestPoint.x < Math.max(start.x, end.x) &&
-				latestPoint.y > Math.min(start.y, end.y) && latestPoint.y < Math.max(start.y, end. y)) {
-			return 2;
-		} else if (closer(latestPoint, end, start.x, start.y)) {
-			return 1;
+		int xt = (end.x - start.x) / length, yt = (end.y - start.y) / length;
+		if (xt != 0) {
+			int absPosition = (latestPoint.x - start.x) / xt;
+			if (absPosition < 0) {
+				return 0;
+			} else if (absPosition > length) {
+				return sequence.size();
+			} else {
+				int relPosition = 1;
+				while (absPosition > (sequence.get(relPosition).x - start.x) / xt) {
+					relPosition++;
+				}
+				return relPosition;
+			}
 		} else {
-			return 3;
+			// only deal with yt
+			int absPosition = (latestPoint.y - start.y) / yt;
+			if (absPosition < 0) {
+				return 0;
+			} else if (absPosition > length) {
+				return sequence.size();
+			} else {
+				int relPosition = 1;
+				while (absPosition > (sequence.get(relPosition).y - start.y) / yt) {
+					relPosition++;
+				}
+				return relPosition;
+			}
 		}
 	}
 
@@ -539,14 +547,14 @@ public class Jack {
 	}
 
 	// return the best move
-	public Point winningMove(int x, int y) {
+	public Point winningMove() {
 		nodes = 0;
 		time[0] = System.nanoTime();
 		Point result = new Point();
 		int best;
 		List<Point> toVisit = new ArrayList<>(BRANCH_LIMIT);
 		MyPQ pq = new MyPQ(BRANCH_LIMIT);
-		if (count != 1) {
+		if (threatSpaces.size() != 1) {
 			for (int i=0; i<19; i++) {
 				for (int j=0; j<19; j++) {
 					if (scores[i][j] != 0) {
@@ -561,7 +569,7 @@ public class Jack {
 			}
 		} else {
 			// check 2 branches, 8 total
-			Point first = new Point(x,y);
+			Point first = new Point();
 			for (Point p : threatSpaces.keySet()) {
 				first = p;
 			}
@@ -745,5 +753,16 @@ public class Jack {
 			result.add(i, new PI(new Point(toCopy.get(i).getP().x, toCopy.get(i).getP().y), toCopy.get(i).getI()));
 		}
 		return result;
+	}
+
+	private int length(List<Point> threatSequence) {
+		Point start = threatSequence.get(0), end = threatSequence.get(threatSequence.size() - 1);
+		int len2 = (start.x - end.x) * (start.x - end.x) + (start.y - end.y) * (start.y - end.y);
+		int len1 = (int)Math.sqrt(len2);
+		if (len2 == len1 * len1) {
+			return len1;
+		} else {
+			return (int)Math.sqrt(len2 / 2);
+		}
 	}
 }

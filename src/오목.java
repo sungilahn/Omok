@@ -30,6 +30,7 @@ public class 오목 extends JFrame {
     private BufferedImage image;
 	private Jack AI;
 	private ClientCommunicator comm;
+	// TODO: handle exception when cannot connect to server so that it doesn't crash the game
     // TODO: timer dropdown, specify file format, autosave when game is done
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
 	// TODO: splash screen to let her know that game is loading
@@ -389,7 +390,7 @@ public class 오목 extends JFrame {
 							if (AIMode) {
 								calculating = true;
 								double startTime = System.nanoTime();
-								Point tmp = AI.winningMove(px, py);
+								Point tmp = AI.winningMove();
 								pieces.add(tmp);
 								AI.addPoint(tmp.x, tmp.y);
 								double endTime = System.nanoTime();
