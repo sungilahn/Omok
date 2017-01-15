@@ -32,6 +32,7 @@ public class 오목 extends JFrame {
 	private ClientCommunicator comm;
     // TODO: timer dropdown, specify file format, autosave when game is done
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
+	// TODO: splash screen to let her know that game is loading
 
     // constructor
     public 오목() {
@@ -388,7 +389,7 @@ public class 오목 extends JFrame {
 							if (AIMode) {
 								calculating = true;
 								double startTime = System.nanoTime();
-								Point tmp = AI.winningMove();
+								Point tmp = AI.winningMove(px, py);
 								pieces.add(tmp);
 								AI.addPoint(tmp.x, tmp.y);
 								double endTime = System.nanoTime();
@@ -454,11 +455,15 @@ public class 오목 extends JFrame {
 			show++;
 			AI.addPoint(9,9);
 		} else { // Online multi-player
-			comm = new ClientCommunicator(serverIP, this);
-			comm.setDaemon(true);
-			comm.start();
-			online = true;
-			setConnecting(true);
+			try {
+				comm = new ClientCommunicator(serverIP, this);
+				comm.setDaemon(true);
+				comm.start();
+				online = true;
+				setConnecting(true);
+			} catch (Exception e) {
+				JOptionPane.showMessageDialog(오목.this, "서버에 연결 불가능", "에러", JOptionPane.ERROR_MESSAGE);
+			}
 		}
         repaint();
     }

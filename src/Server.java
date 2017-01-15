@@ -12,6 +12,8 @@ public class Server {
 	// TODO: more elegant way of handling cut-off connections and redeploying to server, and logging in via ssh
 	// TODO: bug where one client can double click restart and get connected to himself
 	// TODO: bug where both can press at the same time and both would register at the same point
+	// TODO: automatic saving over the server
+	// TODO: clearing out cache so that empty spot is filled up from the bottom up
 
 	public Server(ServerSocket listen) {
 		this.listen = listen;

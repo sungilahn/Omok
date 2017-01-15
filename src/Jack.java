@@ -1,19 +1,28 @@
+import Dependencies.DeepCopy;
+
 import java.awt.*;
 import java.util.*;
 import java.util.List;
 
 public class Jack {
 	private static final int SUFFICIENTLY_LARGE_NUMBER = 100_000_000;
+	private static final int DEPTH_LIMIT = 5;
+	private static final int BRANCH_LIMIT = 5;
 	private static final double DEFENSE_WEIGHT = 0.9;
 	private static final double THRESHOLD = 2/3;
-	private int depth = 5, turn = 1; // -1 for white, 1 for black. Depth should be odd
+	private double[] time;
+	private int turn = 1, count, nodes; // turn: -1 for white, 1 for black. count is used for the first move only
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score
 	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
-	private double[] time;
-	// TODO: if I can figure out how to deep copy objects, then implement undo
+	// TODO: smarten up AI - it ignores to defend right next to any threats
+	// TODO: implement undo using deep copy
 	// link: http://stackoverflow.com/questions/2156120/java-recommended-solution-for-deep-cloning-copying-an-instance
-	// TODO: add alpha-beta pruning in minimax tree for winningMove
+	// TODO: in the beginning, only add 2 branches of 2, not 4
+	// TODO: obvious optimization - when any of the scores are above a certain limit, should check for win and return early
+	// TODO: optimization - when there's threes (whether it's split or not) and there is nothing blocking it,
+	// should prioritize only the directly neighboring spaces
+	// TODO: optimization - just ignore scores & spaces that are insignificant, in both alternating and tallying up
 
 	// custom data type
 	public class PI {
@@ -47,32 +56,31 @@ public class Jack {
 		threatSpaces = new HashMap<>();
 		lookup = new HashMap<>();
 		scores = new int[19][19];
-		time = new double[8];
+		time = new double[2];
+		count = 0;
 	}
 
 	// officially adds point, modifying the actual threatSpaces and lookup
 	public void addPoint(int x, int y) {
+		count++;
 		board[x][y] = turn;
 		turn = 0 - turn;
 		// add point to lookup and threatSpaces
-		threatSpaces = step(x, y, threatSpaces, lookup, turn);
-		time[5] = System.nanoTime();
-		lookup = hash(lookup, x, y);
-		time[6] = System.nanoTime();
-		scores = calculateScores(lookup, threatSpaces);
-		time[7] = System.nanoTime();
+		threatSpaces = step(x, y, threatSpaces, lookup, turn, board);
+		lookup = hash(lookup, x, y, board, turn);
+		scores = calculateScores(lookup, threatSpaces, board, turn);
 	}
 
 	// modifies sequences, threat spaces, and scores given a new point
-	private Map<Point, List<List<PI>>> step(int x, int y, Map<Point, List<List<PI>>> threatSpaces,
-												 Map<Point, List<List<Point>>> lookup, int turn) {
-		time[0] = System.nanoTime();
+	private Map<Point, List<List<PI>>> step(int x, int y, Map<Point, List<List<PI>>> threatSpaces, Map<Point,
+			List<List<Point>>> lookup, int turn, int[][] board) {
 		Map<Point, List<List<PI>>> result = new HashMap<>();
 		// first, alternate scores as ones that are affected and not affected both need to alternate scores
 		for (Point threat : threatSpaces.keySet()) {
 			List<List<PI>> updatedList = new ArrayList<>();
 			for (List<PI> threatLine : threatSpaces.get(threat)) {
-				List<PI> newList = new ArrayList<>(threatLine);
+				//List<PI> newList = new ArrayList<>(threatLine);
+				List<PI> newList = copyList(threatLine);
 				// if color of sequence is the same as the color of whoever just put down their stone
 				if (board[threat.x][threat.y] == turn) {
 					for (PI spaceScore : newList) {
@@ -86,9 +94,10 @@ public class Jack {
 				}
 				updatedList.add(newList);
 			}
-			result.put(threat, updatedList);
+			// copy threat
+			Point newThreat = new Point(threat.x, threat.y);
+			result.put(newThreat, updatedList);
 		}
-		time[1] = System.nanoTime();
 		// lookup the point and see which ones it affect
 		Point latestPoint = new Point(x, y); // the point that is affecting
 		if (lookup.containsKey(latestPoint)) {
@@ -97,23 +106,28 @@ public class Jack {
 					if (board[threat.x][threat.y] != turn) { // same color
 						// first, update the score of affected threat space
 						int[] temp = threatSpaceFinder(threat, latestPoint);
-						result.get(threat).get(temp[0]).get(temp[1]).setI(0);
+						try {
+							result.get(threat).get(temp[0]).get(temp[1]).setI(0);
+						} catch (Exception e) {
+							System.out.println("Error in step. Threat: "+threat.toString()+", access: "+temp[0]+", "+temp[1]
+							+", latest point: ("+x+","+y+")");
+						}
 					} else {
 						// TODO: opposing color - check other side for <5 then remove threat spaces accordingly
 						boolean blocked = false;
 						for (int i=0; i<8; i++) {
-							for (int j=0; j<threatSpaces.get(threat).get(i).size(); j++) {
-								if (!blocked && threatSpaces.get(threat).get(i).get(j).getP().equals(latestPoint)) {
+							for (int j=0; j<result.get(threat).get(i).size(); j++) {
+								if (!blocked && result.get(threat).get(i).get(j).getP().equals(latestPoint)) {
 									List<PI> newLine = new ArrayList<>();
 									for (int k=0; k<j; k++) {
-										newLine.add(threatSpaces.get(threat).get(i).get(k));
+										newLine.add(result.get(threat).get(i).get(k));
 									}
 									if (j > 0) { // reduce score of the stone adjacent to the opposing piece by 1/4th
 										newLine.set(j-1, new PI(newLine.get(j-1).getP(), newLine.get(j-1).getI() / 4));
 									} else if (j == 0) { // reduce score of other side by 1/4
 										int opposite = (i + 4) % 8;
-										for (int k=0; k<threatSpaces.get(threat).get(opposite).size(); k++) {
-											threatSpaces.get(threat).get(opposite).get(k).setI(threatSpaces.get(threat)
+										for (int k=0; k<result.get(threat).get(opposite).size(); k++) {
+											result.get(threat).get(opposite).get(k).setI(result.get(threat)
 													.get(opposite).get(k).getI() / 4);
 										}
 									}
@@ -126,7 +140,6 @@ public class Jack {
 				}
 			}
 		}
-		time[2] = System.nanoTime();
 		// this is a new threat 'sequence' containing only one point (goes 8-way)
 		// insert the threat point - expand until board boundary or opposite color is reached. when same color, score 0
 		int[] xFactor = {1, 1}, yFactor = {0, 1};
@@ -171,7 +184,6 @@ public class Jack {
 			}
 		}
 		result.put(latestPoint, threatLines);
-		time[3] = System.nanoTime();
 		// adjusting score of threat spaces of opposite side of wherever an opposing piece is directly touching
 		if (!blocked.isEmpty()) {
 			for (int side : blocked) {
@@ -182,7 +194,6 @@ public class Jack {
 				}
 			}
 		}
-		time[4] = System.nanoTime();
 		return result;
 	}
 
@@ -227,11 +238,13 @@ public class Jack {
 		return result;
 	}
 
-	private Map<Point, List<List<Point>>> hash(Map<Point, List<List<Point>>> lookup, int x, int y) {
-		Map<Point, List<List<Point>>> result = new HashMap<>(lookup);
+	// keeps track of all the sequences for each threat space
+	private Map<Point, List<List<Point>>> hash(Map<Point, List<List<Point>>> lookup, int x, int y, int[][] board,
+											   int turn) {
+		Map<Point, List<List<Point>>> result = (Map) DeepCopy.copy(lookup);
 		Point latestPoint = new Point(x, y);
 		List<List<Point>> visited = new ArrayList<>();
-		if (lookup.containsKey(latestPoint)) result.remove(latestPoint);
+		if (result.containsKey(latestPoint)) result.remove(latestPoint);
 		int[] xFactor = {1, 1}, yFactor = {0, 1};
 		for (int i=0; i<4; i++) {
 			for (int j=0; j<2; j++) {
@@ -245,9 +258,9 @@ public class Jack {
 							// a valid threat space
 							Point threatSpace = new Point(xt, yt);
 							boolean exists = false, found = false, toAdd = false;
-							if (lookup.containsKey(threatSpace)) {
+							if (result.containsKey(threatSpace)) {
 								// modify existing sequence that has this threat space
-								for (int m = 0; m < lookup.get(threatSpace).size(); m++) {
+								for (int m = 0; m < result.get(threatSpace).size(); m++) {
 									List<Point> sequence = result.get(threatSpace).get(m);
 									// check if the sequence is valid
 									if (!visited.contains(sequence) && (inRange(latestPoint, sequence.get(0)) ||
@@ -256,46 +269,44 @@ public class Jack {
 										// and check if the sequence, threat space, and the new threat all line up
 										if (inLine(sequence.get(0), threatSpace, latestPoint)) {
 											found = true;
-											if (board[sequence.get(0).x][sequence.get(0).y] != turn) {
-												// the sequence has same color as the latest point
-												if (isClear(sequence.get(sequence.size() - 1), latestPoint, turn)) {
-													if (sequence.size() == 1) {
-														if (closer(threatSpace, sequence.get(0), x, y)) {
+											if (board[sequence.get(0).x][sequence.get(0).y] != turn &&
+													isClear(sequence.get(sequence.size() - 1), latestPoint, turn, board)) {
+												if (sequence.size() == 1) {
+													if (closer(threatSpace, sequence.get(0), x, y)) {
+														sequence.add(0, latestPoint);
+													} else {
+														sequence.add(latestPoint);
+													}
+												} else {
+													boolean out = false;
+													for (int n = 1; n < sequence.size(); n++) {
+														if (!inRange(latestPoint, sequence.get(n))) {
+															out = true;
+														}
+													}
+													if (!out) {
+														int position = position(sequence, latestPoint);
+														if (position == 1) {
+															// latestPoint --- start --- end
 															sequence.add(0, latestPoint);
+														} else if (position == 2) {
+															// start --- latestPoint --- end
+															int n = 1;
+															// putting it in order so that I don't have to sort
+															while (!closer(threatSpace, sequence.get(n), x, y)) {
+																n++;
+															}
+															sequence.add(n, latestPoint);
 														} else {
+															// start --- end --- latestPoint
 															sequence.add(latestPoint);
 														}
 													} else {
-														boolean out = false;
-														for (int n = 1; n < sequence.size(); n++) {
-															if (!inRange(latestPoint, sequence.get(n))) {
-																out = true;
-															}
-														}
-														if (!out) {
-															int position = position(sequence, latestPoint);
-															if (position == 1) {
-																// latestPoint --- start --- end
-																sequence.add(0, latestPoint);
-															} else if (position == 2) {
-																// start --- latestPoint --- end
-																int n = 1;
-																// putting it in order so that I don't have to sort
-																while (!closer(threatSpace, sequence.get(n), x, y)) {
-																	n++;
-																}
-																sequence.add(n, latestPoint);
-															} else {
-																// start --- end --- latestPoint
-																sequence.add(latestPoint);
-															}
-														} else {
-															List<Point> temp = splitOff(latestPoint, sequence);
-															result.get(threatSpace).add(temp);
-															// need to do this - otherwise this sequence is checked
-															// again for reasons unknown - do not touch!!
-															visited.add(temp);
-														}
+														List<Point> temp = splitOff(latestPoint, sequence);
+														result.get(threatSpace).add(temp);
+														// need to do this - otherwise this sequence is checked
+														// again for reasons unknown - do not touch!!
+														visited.add(temp);
 													}
 												}
 											} else {
@@ -374,7 +385,7 @@ public class Jack {
 	}
 
 	// checks if there are no opposing colors between the end point and the new point
-	private boolean isClear(Point end, Point latestPoint, int turn) {
+	private boolean isClear(Point end, Point latestPoint, int turn, int[][] board) {
 		if (end.x == latestPoint.x) {
 			// vertical
 			for (int i = 1; i < Math.abs(end.y - latestPoint.y); i++) {
@@ -445,7 +456,8 @@ public class Jack {
 		return result;
 	}
 
-	private int[][] calculateScores(Map<Point, List<List<Point>>> lookup, Map<Point, List<List<PI>>> threatSpaces) {
+	private int[][] calculateScores(Map<Point, List<List<Point>>> lookup, Map<Point, List<List<PI>>> threatSpaces,
+									int[][] board, int turn) {
 		int[][] result = new int[19][19];
 		for (Point threatSpace : lookup.keySet()) {
 			int black = 0, white = 0;
@@ -455,28 +467,33 @@ public class Jack {
 				// for points within a sequence, multiply them
 				for (Point threat : threatSequence) {
 					int[] temp = threatSpaceFinder(threat, threatSpace);
-					if (board[threatSequence.get(0).x][threatSequence.get(0).y] == 1) {
-						if (blackCount == 0) {
-							seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
-						} else {
-							if (turn == 1) {
-								seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() / 2);
+					try { // for bug fixing
+						if (board[threatSequence.get(0).x][threatSequence.get(0).y] == 1) {
+							if (blackCount == 0) {
+								seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
 							} else {
-								seqScore *= threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
+								if (turn == 1) {
+									seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() / 2);
+								} else {
+									seqScore *= threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
+								}
 							}
-						}
-						blackCount++;
-					} else {
-						if (whiteCount == 0) {
-							seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
+							blackCount++;
 						} else {
-							if (turn == 1) {
-								seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() * -1);
+							if (whiteCount == 0) {
+								seqScore = threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI();
 							} else {
-								seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() / -2);
+								if (turn == 1) {
+									seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() * -1);
+								} else {
+									seqScore *= (threatSpaces.get(threat).get(temp[0]).get(temp[1]).getI() / -2);
+								}
 							}
+							whiteCount++;
 						}
-						whiteCount++;
+					} catch (Exception e) {
+						System.out.println("Error in calc. Threat: "+threat.toString()+", access: "+temp[0]+", "
+								+temp[1]+", threatSpace: "+threatSpace.toString());
 					}
 				}
 				// then add up the scores of the sequences
@@ -501,9 +518,9 @@ public class Jack {
 			} else {
 				if (turn == -1) {
 					// white's turn
-					result[threatSpace.x][threatSpace.y] = white - (int)(DEFENSE_WEIGHT * black);
+					result[threatSpace.x][threatSpace.y] = -white + (int)(DEFENSE_WEIGHT * black);
 				} else {
-					result[threatSpace.x][threatSpace.y] = black - (int)(DEFENSE_WEIGHT * white);
+					result[threatSpace.x][threatSpace.y] = -black + (int)(DEFENSE_WEIGHT * white);
 				}
 			}
 		}
@@ -515,13 +532,6 @@ public class Jack {
 		System.out.println("threatSpaces: "+ threatSpaces.toString());
 		System.out.println("lookup: "+lookup.toString());
 		System.out.println("number of threat spaces: "+lookup.keySet().size());
-		System.out.println("(Step) time to alternate scores: "+(time[1]-time[0])/1000000+" ms");
-		System.out.println("(Step) time to modify existing threat space: "+(time[2]-time[1])/1000000+" ms");
-		System.out.println("(Step) time to put in new threat: "+(time[3]-time[2])/1000000+" ms");
-		System.out.println("(Step) time to correct scores that are directly touched: "+(time[4]-time[3])/1000000+" ms");
-		System.out.println("(Hash) time to generate lookup: "+(time[6]-time[5])/1000000+" ms");
-		System.out.println("(Calc) time to calculate scores: "+(time[7]-time[6])/1000000+" ms");
-		System.out.println("Total time to add a point: "+(time[7]-time[0])/1000000+" ms");
 	}
 
 	public int[][] getScores() {
@@ -529,14 +539,211 @@ public class Jack {
 	}
 
 	// return the best move
-	public Point winningMove() {
-		Point result = new Point(10,10);
+	public Point winningMove(int x, int y) {
+		nodes = 0;
+		time[0] = System.nanoTime();
+		Point result = new Point();
+		int best;
+		List<Point> toVisit = new ArrayList<>(BRANCH_LIMIT);
+		MyPQ pq = new MyPQ(BRANCH_LIMIT);
+		if (count != 1) {
+			for (int i=0; i<19; i++) {
+				for (int j=0; j<19; j++) {
+					if (scores[i][j] != 0) {
+						pq.push(scores[i][j], new Point(i, j));
+					}
+				}
+			}
+			int largest = pq.peek();
+			toVisit.add(pq.pop());
+			while (toVisit.size() < BRANCH_LIMIT && pq.peek() > Math.floor(THRESHOLD * largest)) {
+				toVisit.add(pq.pop());
+			}
+		} else {
+			// check 2 branches, 8 total
+			Point first = new Point(x,y);
+			for (Point p : threatSpaces.keySet()) {
+				first = p;
+			}
+			if (first.x <= 9) {
+				// left side of the board
+				if (first.y <= 9) {
+					// quadrant 2
+					for (PI p : threatSpaces.get(first).get(1)) {
+						// adding diagonals
+						toVisit.add(p.getP());
+					}
+					if (first.x > first.y) {
+						for (PI p : threatSpaces.get(first).get(2)) {
+							toVisit.add(p.getP());
+						}
+					} else {
+						for (PI p : threatSpaces.get(first).get(0)) {
+							toVisit.add(p.getP());
+						}
+					}
+				} else {
+					// quadrant 3
+					for (PI p : threatSpaces.get(first).get(7)) toVisit.add(p.getP());
+					if (first.x > 19 - first.y) {
+						for (PI p : threatSpaces.get(first).get(6)) {
+							toVisit.add(p.getP());
+						}
+					} else {
+						for (PI p : threatSpaces.get(first).get(0)) {
+							toVisit.add(p.getP());
+						}
+					}
+				}
+			} else {
+				// right side of the board
+				if (first.y <= 9) {
+					// quadrant 1
+					for (PI p : threatSpaces.get(first).get(3)) {
+						toVisit.add(p.getP());
+					}
+					if (19 - first.x > first.y) {
+						for (PI p : threatSpaces.get(first).get(2)) {
+							toVisit.add(p.getP());
+						}
+					} else {
+						for (PI p : threatSpaces.get(first).get(4)) {
+							toVisit.add(p.getP());
+						}
+					}
+				} else {
+					// quadrant 4
+					for (PI p : threatSpaces.get(first).get(5)) {
+						toVisit.add(p.getP());
+					}
+					if (first.x > first.y) {
+						for (PI p : threatSpaces.get(first).get(4)) {
+							toVisit.add(p.getP());
+						}
+					} else {
+						for (PI p : threatSpaces.get(first).get(6)) {
+							toVisit.add(p.getP());
+						}
+					}
+				}
+			}
+		}
+		if (turn == 1) {
+			best = Integer.MIN_VALUE;
+			for (Point p : toVisit) {
+				nodes++;
+				System.out.println("Searched "+nodes+" nodes");
+				int[][] newBoard = addBoard(board, p.x, p.y, turn);
+				int newTurn = -turn;
+				Map<Point, List<List<PI>>> nextThreats = step(p.x, p.y, threatSpaces, lookup, newTurn, newBoard);
+				Map<Point, List<List<Point>>> nextLookup = hash(lookup, p.x, p.y, newBoard, newTurn);
+				int[][] nextScores = calculateScores(nextLookup, nextThreats, newBoard, newTurn);
+				int val = alphaBeta(newBoard, nextThreats, Integer.MIN_VALUE, Integer.MAX_VALUE, nextLookup,
+						nextScores, 0, newTurn);
+				if (val >= best) {
+					best = val;
+					result = p;
+				}
+			}
+		} else {
+			best = Integer.MAX_VALUE;
+			for (Point p : toVisit) {
+				nodes++;
+				System.out.println("Searched "+nodes+" nodes");
+				int[][] newBoard = addBoard(board, p.x, p.y, turn);
+				int newTurn = -turn;
+				Map<Point, List<List<PI>>> nextThreats = step(p.x, p.y, threatSpaces, lookup, newTurn, newBoard);
+				Map<Point, List<List<Point>>> nextLookup = hash(lookup, p.x, p.y, newBoard, newTurn);
+				int[][] nextScores = calculateScores(nextLookup, nextThreats, newBoard, newTurn);
+				int val = alphaBeta(newBoard, nextThreats, Integer.MIN_VALUE, Integer.MAX_VALUE, nextLookup,
+						nextScores, 0, newTurn);
+				if (val <= best) {
+					best = val;
+					result = p;
+				}
+			}
+		}
 		return result;
 	}
 
 	// the minimax depth-first search with alphabeta pruning
-	private int alphaBeta(int[][] board, Map<Point, List<List<PI>>> threatSpaces,
-						  Map<Point, List<List<Point>>> lookup, int[][] scores, int depth) {
-		return 0;
+	// "node" is the combination of board, threats, lookup, scores, and turn
+	private int alphaBeta(int[][] board, Map<Point, List<List<PI>>> threatSpaces, int alpha, int beta,
+						  Map<Point, List<List<Point>>> lookup, int[][] scores, int depth, int turn) {
+		nodes++;
+		time[1] = System.nanoTime();
+		System.out.println("Reached depth "+depth+" in "+(time[1]-time[0])/1000000+" ms with "+nodes+" nodes");
+		if (depth == DEPTH_LIMIT) { // add functionality so that if game over, returns early
+			// max node - evaluate and return score
+			int total = 0;
+			for (int i=0; i<19; i++) {
+				for (int j=0; j<19; j++) {
+					total += scores[i][j];
+				}
+			}
+			System.out.println("Returning "+total);
+			return total;
+		}
+		List<Point> toVisit = new ArrayList<>(BRANCH_LIMIT);
+		MyPQ pq = new MyPQ(BRANCH_LIMIT);
+		for (int i=0; i<19; i++) {
+			for (int j=0; j<19; j++) {
+				if (scores[i][j] != 0) {
+					pq.push(scores[i][j], new Point(i, j));
+				}
+			}
+		}
+		int largest = pq.peek();
+		toVisit.add(pq.pop());
+		while (toVisit.size() < BRANCH_LIMIT && pq.peek() > Math.floor(THRESHOLD * largest)) {
+			toVisit.add(pq.pop());
+		}
+		if (turn == 1) {
+			// maximizing player - should prefer the totals that have higher positive value
+			// visit all the places in order and do alpha beta pruning
+			for (Point p : toVisit) {
+				int[][] newBoard = addBoard(board, p.x, p.y, turn);
+				int newTurn = -turn;
+				Map<Point, List<List<PI>>> nextThreats = step(p.x, p.y, threatSpaces, lookup, newTurn, newBoard);
+				Map<Point, List<List<Point>>> nextLookup = hash(lookup, p.x, p.y, newBoard, newTurn);
+				int[][] nextScores = calculateScores(nextLookup, nextThreats, newBoard, newTurn);
+				int val = alphaBeta(newBoard, nextThreats, alpha, beta, nextLookup, nextScores, depth + 1, newTurn);
+				alpha = Math.max(alpha, val);
+				if (alpha >= beta) break;
+			}
+			return alpha;
+		} else {
+			// minimizing player
+			for (Point p : toVisit) {
+				int[][] newBoard = addBoard(board, p.x, p.y, turn);
+				int newTurn = -turn;
+				Map<Point, List<List<PI>>> nextThreats = step(p.x, p.y, threatSpaces, lookup, newTurn, newBoard);
+				Map<Point, List<List<Point>>> nextLookup = hash(lookup, p.x, p.y, newBoard, newTurn);
+				int[][] nextScores = calculateScores(nextLookup, nextThreats, newBoard, newTurn);
+				int val = alphaBeta(newBoard, nextThreats, alpha, beta, nextLookup, nextScores, depth + 1, newTurn);
+				beta = Math.min(beta, val);
+				if (alpha >= beta) break;
+			}
+			return beta;
+		}
+	}
+
+	private int[][] addBoard(int[][] board, int x, int y, int turn) {
+		int[][] result = new int[19][19];
+		for (int i=0; i<19; i++) {
+			for (int j=0; j<19; j++) {
+				result[i][j] = board[i][j];
+			}
+		}
+		result[x][y] = turn;
+		return result;
+	}
+
+	private List<PI> copyList(List<PI> toCopy) {
+		List<PI> result = new ArrayList<>();
+		for (int i=0; i<toCopy.size(); i++) {
+			result.add(i, new PI(new Point(toCopy.get(i).getP().x, toCopy.get(i).getP().y), toCopy.get(i).getI()));
+		}
+		return result;
 	}
 }
