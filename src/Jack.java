@@ -17,10 +17,11 @@ public class Jack {
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score
 	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
-	// TODO: implement undo using deep copy
+	// TODO: play around with AI more and find and fix more bugs
+	// TODO: figure out why it sometimes ignores best moves, and why it is seemingly so goddamn smart when it's starting first
 	// TODO: make AI non-retarded - it even manages to ignore straight rows of 4 (when score is 100000000)
 	// TODO: in the beginning, only add 2 branches of 2, not 4
-	// TODO: obvious optimization - when any of the scores are above a certain limit, should check for win and return early
+	// TODO: implement undo using deep copy
 	// TODO: optimization - when there's threes (whether it's split or not) and there is nothing blocking it,
 	// should prioritize only the directly neighboring spaces
 	// TODO: optimization - should make threat detection much less lengthy (don't go over entire lookup again)
@@ -109,8 +110,8 @@ public class Jack {
 						try {
 							result.get(threat).get(temp[0]).get(temp[1]).setI(0);
 						} catch (Exception e) {
-							System.out.println("Error in step. Threat: "+threat.toString()+", access: "+temp[0]+", "+temp[1]
-							+", latest point: ("+x+","+y+")");
+							System.out.println("Error in step. Threat: "+threat.toString()+", access: "+temp[0]+
+									", "+temp[1]+", latest point: ("+x+","+y+")");
 						}
 					} else {
 						// TODO: opposing color - check other side for <5 then remove threat spaces accordingly
@@ -313,7 +314,7 @@ public class Jack {
 								}
 							}
 							// threat space doesn't exist or none of the sequences affect latest point
-							if (!exists || !found || toAdd) {
+							if (!blocking && (!exists || !found || toAdd)) {
 								// add in new sequence
 								List<Point> sequence = new ArrayList<>();
 								sequence.add(latestPoint);
@@ -500,8 +501,15 @@ public class Jack {
 							whiteCount++;
 						}
 					} catch (Exception e) {
-						System.out.println("Error in calc. Threat: "+threat.toString()+", access: "+temp[0]+", "
-								+temp[1]+", threatSpace: "+threatSpace.toString());
+						System.out.println("Error in calc. Threat: "+threat.toString()+", threatSpace: "+threatSpace.toString());
+						List<PI> log = new ArrayList<>();
+						for (Point p : threatSpaces.keySet()) {
+							if (!this.threatSpaces.containsKey(p)) log.add(new PI(p, 0));
+						}
+						for (PI pi : log) {
+							pi.setI(board[pi.getP().x][pi.getP().y]);
+						}
+						System.out.println("Log: "+log.toString());
 					}
 				}
 				// then add up the scores of the sequences
@@ -513,7 +521,7 @@ public class Jack {
 					}
 				} else {
 					if (whiteCount == 4) {
-						white = (-1 * SUFFICIENTLY_LARGE_NUMBER);
+						white = -SUFFICIENTLY_LARGE_NUMBER;
 					} else {
 						white += seqScore;
 					}
@@ -715,6 +723,7 @@ public class Jack {
 			toVisit.add(pq.pop());
 		}
 		if (turn == 1) {
+			int val = Integer.MIN_VALUE;
 			// maximizing player - should prefer the totals that have higher positive value
 			// visit all the places in order and do alpha beta pruning
 			for (Point p : toVisit) {
@@ -723,12 +732,13 @@ public class Jack {
 				Map<Point, List<List<PI>>> nextThreats = step(p.x, p.y, threatSpaces, lookup, newTurn, newBoard);
 				Map<Point, List<List<Point>>> nextLookup = hash(lookup, p.x, p.y, newBoard, newTurn);
 				int[][] nextScores = calculateScores(nextLookup, nextThreats, newBoard, newTurn);
-				int val = alphaBeta(newBoard, nextThreats, alpha, beta, nextLookup, nextScores, depth + 1, newTurn);
+				val = Math.max(val, alphaBeta(newBoard, nextThreats, alpha, beta, nextLookup, nextScores, depth + 1, newTurn));
 				alpha = Math.max(alpha, val);
 				if (alpha >= beta) break;
 			}
-			return alpha;
+			return val;
 		} else {
+			int val = Integer.MAX_VALUE;
 			// minimizing player
 			for (Point p : toVisit) {
 				int[][] newBoard = addBoard(board, p.x, p.y, turn);
@@ -736,11 +746,11 @@ public class Jack {
 				Map<Point, List<List<PI>>> nextThreats = step(p.x, p.y, threatSpaces, lookup, newTurn, newBoard);
 				Map<Point, List<List<Point>>> nextLookup = hash(lookup, p.x, p.y, newBoard, newTurn);
 				int[][] nextScores = calculateScores(nextLookup, nextThreats, newBoard, newTurn);
-				int val = alphaBeta(newBoard, nextThreats, alpha, beta, nextLookup, nextScores, depth + 1, newTurn);
+				val = Math.min(val, alphaBeta(newBoard, nextThreats, alpha, beta, nextLookup, nextScores, depth + 1, newTurn));
 				beta = Math.min(beta, val);
 				if (alpha >= beta) break;
 			}
-			return beta;
+			return val;
 		}
 	}
 

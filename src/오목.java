@@ -30,7 +30,7 @@ public class 오목 extends JFrame {
     private BufferedImage image;
 	private Jack AI;
 	private ClientCommunicator comm;
-	// TODO: handle exception when cannot connect to server so that it doesn't crash the game
+	// TODO: handle exception when cannot connect to server in a way that doesn't crash the game
     // TODO: timer dropdown, specify file format, autosave when game is done
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
 	// TODO: splash screen to let her know that game is loading
@@ -392,12 +392,18 @@ public class 오목 extends JFrame {
 								double startTime = System.nanoTime();
 								Point tmp = AI.winningMove();
 								pieces.add(tmp);
+								set34 = open3(pieces);
 								AI.addPoint(tmp.x, tmp.y);
 								double endTime = System.nanoTime();
 								double duration = (endTime - startTime)/1000000;
 								System.out.println("It took "+duration+" ms to calculate the best move");
 								calculating = false;
 								show = pieces.size();
+								if (won()) {
+									ifWon = true;
+									JOptionPane.showMessageDialog(오목.this, "컴퓨터 승리", "게임 종료",
+											JOptionPane.INFORMATION_MESSAGE);
+								}
 								repaint();
 							}
 						}
