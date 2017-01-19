@@ -17,10 +17,8 @@ public class Jack {
 	private int[][] board, scores; // actual board for storing pieces. Separate from storing board space scores
 	private Map<Point, List<List<PI>>> threatSpaces; // threat -> threat space lines -> space & score
 	private Map<Point, List<List<Point>>> lookup; // threat space (incl. 0) -> list of threat sequences
-	// TODO: play around with AI more and find and fix more bugs
-	// TODO: figure out why it sometimes ignores best moves, and why it is seemingly so goddamn smart when it's starting first
+	// TODO: figure out why AI sometimes ignores best moves when it's white, even though it's smart when it goes first
 	// TODO: make AI non-retarded - it even manages to ignore straight rows of 4 (when score is 100000000)
-	// TODO: in the beginning, only add 2 branches of 2, not 4
 	// TODO: lazy parallelization - using the fact that there are at max 4 or 5 on the first level, streamify the first level and parallelize it
 	// TODO: implement undo using deep copy
 	// TODO: obvious optimization - remove "dead branches" in both threatspaces and lookup
@@ -282,8 +280,8 @@ public class Jack {
 													}
 												} else {
 													boolean out = false;
-													for (int n = 0; n < sequence.size(); n++) {
-														if (!inRange(latestPoint, sequence.get(n))) {
+													for (Point p : sequence) {
+														if (!inRange(latestPoint, p)) {
 															out = true;
 														}
 													}
@@ -308,7 +306,6 @@ public class Jack {
 													}
 													boolean flag = false;
 													if (!sequence.isEmpty()) {
-														outerLoop:
 														for (List<Point> branch : result.get(threatSpace)) {
 															if (!branch.equals(sequence) &&
 																	board[branch.get(0).x][branch.get(0).y] == turn &&
@@ -318,7 +315,7 @@ public class Jack {
 																}
 																if (!flag) {
 																	result.get(threatSpace).remove(sequence);
-																	break outerLoop;
+																	break;
 																}
 															}
 														}
@@ -616,29 +613,31 @@ public class Jack {
 				// left side of the board
 				if (first.y <= 9) {
 					// quadrant 2
-					for (PI p : threatSpaces.get(first).get(1)) {
+					for (int i=0; i<2; i++) {
 						// adding diagonals
-						toVisit.add(p.getP());
+						toVisit.add(threatSpaces.get(first).get(1).get(i).getP());
 					}
 					if (first.x > first.y) {
-						for (PI p : threatSpaces.get(first).get(2)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(2).get(i).getP());
 						}
 					} else {
-						for (PI p : threatSpaces.get(first).get(0)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(0).get(i).getP());
 						}
 					}
 				} else {
 					// quadrant 3
-					for (PI p : threatSpaces.get(first).get(7)) toVisit.add(p.getP());
+					for (int i=0; i<2; i++) {
+						toVisit.add(threatSpaces.get(first).get(7).get(i).getP());
+					}
 					if (first.x > 19 - first.y) {
-						for (PI p : threatSpaces.get(first).get(6)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(6).get(i).getP());
 						}
 					} else {
-						for (PI p : threatSpaces.get(first).get(0)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(0).get(i).getP());
 						}
 					}
 				}
@@ -646,30 +645,30 @@ public class Jack {
 				// right side of the board
 				if (first.y <= 9) {
 					// quadrant 1
-					for (PI p : threatSpaces.get(first).get(3)) {
-						toVisit.add(p.getP());
+					for (int i=0; i<2; i++) {
+						toVisit.add(threatSpaces.get(first).get(3).get(i).getP());
 					}
 					if (19 - first.x > first.y) {
-						for (PI p : threatSpaces.get(first).get(2)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(2).get(i).getP());
 						}
 					} else {
-						for (PI p : threatSpaces.get(first).get(4)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(4).get(i).getP());
 						}
 					}
 				} else {
 					// quadrant 4
-					for (PI p : threatSpaces.get(first).get(5)) {
-						toVisit.add(p.getP());
+					for (int i=0; i<2; i++) {
+						toVisit.add(threatSpaces.get(first).get(5).get(i).getP());
 					}
 					if (first.x > first.y) {
-						for (PI p : threatSpaces.get(first).get(4)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(4).get(i).getP());
 						}
 					} else {
-						for (PI p : threatSpaces.get(first).get(6)) {
-							toVisit.add(p.getP());
+						for (int i=0; i<2; i++) {
+							toVisit.add(threatSpaces.get(first).get(6).get(i).getP());
 						}
 					}
 				}
