@@ -34,6 +34,7 @@ public class 오목 extends JFrame {
     // TODO: timer dropdown, specify file format, autosave when game is done
 	// TODO: update to Javadoc style, experiment with loading partially completed games' interaction with Jack
 	// TODO: splash screen to let her know that game is loading
+	// TODO: add sound?
 
     // constructor
     public 오목() {

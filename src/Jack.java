@@ -21,7 +21,9 @@ public class Jack {
 	// TODO: figure out why it sometimes ignores best moves, and why it is seemingly so goddamn smart when it's starting first
 	// TODO: make AI non-retarded - it even manages to ignore straight rows of 4 (when score is 100000000)
 	// TODO: in the beginning, only add 2 branches of 2, not 4
+	// TODO: lazy parallelization - using the fact that there are at max 4 or 5 on the first level, streamify the first level and parallelize it
 	// TODO: implement undo using deep copy
+	// TODO: obvious optimization - remove "dead branches" in both threatspaces and lookup
 	// TODO: optimization - when there's threes (whether it's split or not) and there is nothing blocking it,
 	// should prioritize only the directly neighboring spaces
 	// TODO: optimization - should make threat detection much less lengthy (don't go over entire lookup again)
@@ -280,7 +282,7 @@ public class Jack {
 													}
 												} else {
 													boolean out = false;
-													for (int n = 1; n < sequence.size(); n++) {
+													for (int n = 0; n < sequence.size(); n++) {
 														if (!inRange(latestPoint, sequence.get(n))) {
 															out = true;
 														}
@@ -304,10 +306,28 @@ public class Jack {
 													for (Point p : opposite) {
 														sequence.remove(p);
 													}
+													boolean flag = false;
+													if (!sequence.isEmpty()) {
+														outerLoop:
+														for (List<Point> branch : result.get(threatSpace)) {
+															if (!branch.equals(sequence) &&
+																	board[branch.get(0).x][branch.get(0).y] == turn &&
+																	inLine(branch.get(0), threatSpace, sequence.get(0))) {
+																for (Point p : sequence) {
+																	if (!branch.contains(p)) flag = true;
+																}
+																if (!flag) {
+																	result.get(threatSpace).remove(sequence);
+																	break outerLoop;
+																}
+															}
+														}
+													} else {
+														sequence.add(latestPoint);
+													}
 												} else if (!blocking) {
 													toAdd = true;
 												}
-												if (sequence.size() == 0) sequence.add(latestPoint);
 											}
 										}
 									}
@@ -315,15 +335,26 @@ public class Jack {
 							}
 							// threat space doesn't exist or none of the sequences affect latest point
 							if (!blocking && (!exists || !found || toAdd)) {
-								// add in new sequence
-								List<Point> sequence = new ArrayList<>();
-								sequence.add(latestPoint);
-								if (!exists) {
-									List<List<Point>> sequenceList = new ArrayList<>();
-									sequenceList.add(sequence);
-									result.put(threatSpace, sequenceList);
-								} else {
-									result.get(threatSpace).add(sequence);
+								boolean alreadyIn = false;
+								if (result.containsKey(threatSpace)) {
+									for (List<Point> branch : result.get(threatSpace)) {
+										if (branch.contains(latestPoint)) {
+											alreadyIn = true;
+											break;
+										}
+									}
+								}
+								if (!alreadyIn) {
+									// add in new sequence
+									List<Point> sequence = new ArrayList<>();
+									sequence.add(latestPoint);
+									if (!exists) {
+										List<List<Point>> sequenceList = new ArrayList<>();
+										sequenceList.add(sequence);
+										result.put(threatSpace, sequenceList);
+									} else {
+										result.get(threatSpace).add(sequence);
+									}
 								}
 							}
 						} else if (board[xt][yt] == turn) {
