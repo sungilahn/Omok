@@ -8,9 +8,9 @@ import java.util.List;
 public class Jack {
 	private static final int SUFFICIENTLY_LARGE_NUMBER = 100_000_000;
 	private static final int WIN_NUMBER = 256;
-	private static final int DEPTH_LIMIT = 5;
+	private static final int DEPTH_LIMIT = 7; // actual depth is limit + 1
 	private static final int BRANCH_LIMIT = 5;
-	private static final double DEFENSE_WEIGHT = 0.92;
+	private static final double DEFENSE_WEIGHT = 0.92; // to encourage prioritizing offense over defense
 	private static final double THRESHOLD = 2/3;
 	private double[] time;
 	private int turn = 1, nodes; // turn: -1 for white, 1 for black. count is used for the first move only
@@ -22,8 +22,7 @@ public class Jack {
 	// TODO: lazy parallelization - using the fact that there are at max 4 or 5 on the first level, streamify the first level and parallelize it
 	// TODO: implement undo using deep copy
 	// TODO: obvious optimization - remove "dead branches" in both threatspaces and lookup
-	// TODO: optimization - when there's threes (whether it's split or not) and there is nothing blocking it,
-	// should prioritize only the directly neighboring spaces
+	// TODO: optimization -  prioritize only the directly neighboring spaces when there's immediate threat
 	// TODO: optimization - should make threat detection much less lengthy (don't go over entire lookup again)
 	// TODO: optimization - just ignore scores & spaces that are insignificant, in both alternating and tallying up
 
@@ -261,69 +260,72 @@ public class Jack {
 							boolean exists = false, found = false, toAdd = false;
 							if (result.containsKey(threatSpace)) {
 								// modify existing sequence that has this threat space
-								for (int m = 0; m < result.get(threatSpace).size(); m++) {
-									List<Point> sequence = result.get(threatSpace).get(m);
-									// check if the sequence is valid
-									if (!visited.contains(sequence) && (inRange(latestPoint, sequence.get(0)) ||
-											inRange(latestPoint, sequence.get(sequence.size() - 1)))) {
-										exists = true;
-										// and check if the sequence, threat space, and the new threat all line up
-										if (inLine(sequence.get(0), threatSpace, latestPoint)) {
-											found = true;
-											if (board[sequence.get(0).x][sequence.get(0).y] != turn &&
-													isClear(sequence.get(sequence.size() - 1), latestPoint, turn, board)) {
-												if (sequence.size() == 1) {
-													if (closer(threatSpace, sequence.get(0), x, y)) {
-														sequence.add(0, latestPoint);
-													} else {
-														sequence.add(latestPoint);
-													}
-												} else {
-													boolean out = false;
-													for (Point p : sequence) {
-														if (!inRange(latestPoint, p)) {
-															out = true;
+								for (List<Point> seq : lookup.get(threatSpace)) {
+									int index = result.get(threatSpace).indexOf(seq);
+									if (index != -1) {
+										List<Point> sequence = result.get(threatSpace).get(index);
+										// check if the sequence is valid
+										if (!visited.contains(sequence) && (inRange(latestPoint, sequence.get(0)) ||
+												inRange(latestPoint, sequence.get(sequence.size() - 1)))) {
+											exists = true;
+											// and check if the sequence, threat space, and the new threat all line up
+											if (inLine(sequence.get(0), threatSpace, latestPoint)) {
+												found = true;
+												if (board[sequence.get(0).x][sequence.get(0).y] != turn &&
+														isClear(sequence.get(sequence.size() - 1), latestPoint, turn, board)) {
+													if (sequence.size() == 1) {
+														if (closer(threatSpace, sequence.get(0), x, y)) {
+															sequence.add(0, latestPoint);
+														} else {
+															sequence.add(latestPoint);
 														}
-													}
-													if (!out) {
-														sequence.add(position(sequence, latestPoint, length(sequence)),
-																latestPoint);
 													} else {
-														List<Point> temp = splitOff(latestPoint, sequence);
-														result.get(threatSpace).add(temp);
-														// need to do this - otherwise this sequence is checked
-														// again for reasons unknown - do not touch!!
-														visited.add(temp);
-													}
-												}
-											} else {
-												// the sequence has different color from the new threat point, so
-												// trim the existing sequence as necessary
-												List<Point> opposite = oppositeSide(latestPoint, threatSpace, sequence);
-												if (!opposite.isEmpty()) {
-													for (Point p : opposite) {
-														sequence.remove(p);
-													}
-													boolean flag = false;
-													if (!sequence.isEmpty()) {
-														for (List<Point> branch : result.get(threatSpace)) {
-															if (!branch.equals(sequence) &&
-																	board[branch.get(0).x][branch.get(0).y] == turn &&
-																	inLine(branch.get(0), threatSpace, sequence.get(0))) {
-																for (Point p : sequence) {
-																	if (!branch.contains(p)) flag = true;
-																}
-																if (!flag) {
-																	result.get(threatSpace).remove(sequence);
-																	break;
-																}
+														boolean out = false;
+														for (Point p : sequence) {
+															if (!inRange(latestPoint, p)) {
+																out = true;
 															}
 														}
-													} else {
-														sequence.add(latestPoint);
+														if (!out) {
+															sequence.add(position(sequence, latestPoint, length(sequence)),
+																	latestPoint);
+														} else {
+															List<Point> temp = splitOff(latestPoint, sequence);
+															result.get(threatSpace).add(temp);
+															// need to do this - otherwise this sequence is checked
+															// again for reasons unknown - do not touch!!
+															visited.add(temp);
+														}
 													}
-												} else if (!blocking) {
-													toAdd = true;
+												} else {
+													// the sequence has different color from the new threat point, so
+													// trim the existing sequence as necessary
+													List<Point> opposite = oppositeSide(latestPoint, threatSpace, sequence);
+													if (!opposite.isEmpty()) {
+														for (Point p : opposite) {
+															sequence.remove(p);
+														}
+														boolean flag = false;
+														if (!sequence.isEmpty()) {
+															for (List<Point> branch : result.get(threatSpace)) {
+																if (!branch.equals(sequence) &&
+																		board[branch.get(0).x][branch.get(0).y] == turn &&
+																		inLine(branch.get(0), threatSpace, sequence.get(0))) {
+																	for (Point p : sequence) {
+																		if (!branch.contains(p)) flag = true;
+																	}
+																	if (!flag) {
+																		result.get(threatSpace).remove(sequence);
+																		break;
+																	}
+																}
+															}
+														} else {
+															sequence.add(latestPoint);
+														}
+													} else if (!blocking) {
+														toAdd = true;
+													}
 												}
 											}
 										}
@@ -738,6 +740,7 @@ public class Jack {
 					if (Math.abs(scores[i][j]) < WIN_NUMBER) {
 						pq.push(scores[i][j], new Point(i, j));
 					} else {
+						// TODO: consider cases in which overlaps might push a number past 256
 						if (scores[i][j] > 0) {
 							return SUFFICIENTLY_LARGE_NUMBER;
 						} else {
