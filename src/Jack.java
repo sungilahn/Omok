@@ -243,7 +243,6 @@ public class Jack {
 											   int turn) {
 		Map<Point, List<List<Point>>> result = (Map) DeepCopy.copy(lookup);
 		Point latestPoint = new Point(x, y);
-		List<List<Point>> visited = new ArrayList<>();
 		if (result.containsKey(latestPoint)) result.remove(latestPoint);
 		int[] xFactor = {1, 1}, yFactor = {0, 1};
 		for (int i=0; i<4; i++) {
@@ -265,8 +264,8 @@ public class Jack {
 									if (index != -1) {
 										List<Point> sequence = result.get(threatSpace).get(index);
 										// check if the sequence is valid
-										if (!visited.contains(sequence) && (inRange(latestPoint, sequence.get(0)) ||
-												inRange(latestPoint, sequence.get(sequence.size() - 1)))) {
+										if (inRange(latestPoint, sequence.get(0)) ||
+												inRange(latestPoint, sequence.get(sequence.size() - 1))) {
 											exists = true;
 											// and check if the sequence, threat space, and the new threat all line up
 											if (inLine(sequence.get(0), threatSpace, latestPoint)) {
@@ -292,9 +291,6 @@ public class Jack {
 														} else {
 															List<Point> temp = splitOff(latestPoint, sequence);
 															result.get(threatSpace).add(temp);
-															// need to do this - otherwise this sequence is checked
-															// again for reasons unknown - do not touch!!
-															visited.add(temp);
 														}
 													}
 												} else {
